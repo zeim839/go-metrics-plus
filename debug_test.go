@@ -56,7 +56,7 @@ func TestDebugGCStatsDoubleRegister(t *testing.T) {
 	CaptureDebugGCStatsOnce(r)
 
 	firstGC := storedGauge.Value()
-	if 0 == firstGC {
+	if firstGC == 0 {
 		t.Errorf("firstGC got %d, expected > 0", firstGC)
 	}
 
