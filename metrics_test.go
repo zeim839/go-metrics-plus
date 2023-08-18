@@ -2,7 +2,7 @@ package metrics
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"sync"
 	"testing"
@@ -12,18 +12,18 @@ const FANOUT = 128
 
 // Stop the compiler from complaining during debugging.
 var (
-	_ = ioutil.Discard
+	_ = io.Discard
 	_ = log.LstdFlags
 )
 
 func BenchmarkMetrics(b *testing.B) {
 	r := NewRegistry()
-	c := NewRegisteredCounter("counter", r)
-	g := NewRegisteredGauge("gauge", r)
-	gf := NewRegisteredGaugeFloat64("gaugefloat64", r)
-	h := NewRegisteredHistogram("histogram", r, NewUniformSample(100))
-	m := NewRegisteredMeter("meter", r)
-	t := NewRegisteredTimer("timer", r)
+	c := NewRegisteredCounter("counter", r, nil)
+	g := NewRegisteredGauge("gauge", r, nil)
+	gf := NewRegisteredGaugeFloat64("gaugefloat64", r, nil)
+	h := NewRegisteredHistogram("histogram", r, NewUniformSample(100), nil)
+	m := NewRegisteredMeter("meter", r, nil)
+	t := NewRegisteredTimer("timer", r, nil)
 	RegisterDebugGCStats(r)
 	RegisterRuntimeMemStats(r)
 	b.ResetTimer()
@@ -77,7 +77,7 @@ func BenchmarkMetrics(b *testing.B) {
 					//log.Println("done Write")
 					return
 				default:
-					WriteOnce(r, ioutil.Discard)
+					WriteOnce(r, io.Discard)
 				}
 			}
 		}()
@@ -108,12 +108,12 @@ func BenchmarkMetrics(b *testing.B) {
 }
 
 func Example() {
-	c := NewCounter()
+	c := NewCounter(nil)
 	Register("money", c)
 	c.Inc(17)
 
 	// Threadsafe registration
-	t := GetOrRegisterTimer("db.get.latency", nil)
+	t := GetOrRegisterTimer("db.get.latency", nil, nil)
 	t.Time(func() {})
 	t.Update(1)
 

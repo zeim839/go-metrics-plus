@@ -54,18 +54,18 @@ var (
 	registerRuntimeMetricsOnce = sync.Once{}
 )
 
-// Capture new values for the Go runtime statistics exported in
-// runtime.MemStats.  This is designed to be called as a goroutine.
+// CaptureRuntimeMemStats caprutes new values for the Go runtime statistics
+// exported in runtime.MemStats. This is designed to be called as a goroutine.
 func CaptureRuntimeMemStats(r Registry, d time.Duration) {
-	for _ = range time.Tick(d) {
+	for range time.Tick(d) {
 		CaptureRuntimeMemStatsOnce(r)
 	}
 }
 
-// Capture new values for the Go runtime statistics exported in
-// runtime.MemStats.  This is designed to be called in a background
-// goroutine.  Giving a registry which has not been given to
-// RegisterRuntimeMemStats will panic.
+// CaptureRuntimeMemStatsOnce captures new values for the Go runtime statistics
+// exported in runtime.MemStats. This is designed to be called in a background
+// goroutine. Giving a registry which has not been given to RegisterRuntimeMemStats
+// will panic.
 //
 // Be very careful with this because runtime.ReadMemStats calls the C
 // functions runtime·semacquire(&runtime·worldsema) and runtime·stoptheworld()
@@ -144,42 +144,42 @@ func CaptureRuntimeMemStatsOnce(r Registry) {
 	runtimeMetrics.NumThread.Update(int64(threadCreateProfile.Count()))
 }
 
-// Register runtimeMetrics for the Go runtime statistics exported in runtime and
-// specifically runtime.MemStats.  The runtimeMetrics are named by their
-// fully-qualified Go symbols, i.e. runtime.MemStats.Alloc.
+// RegisterRuntimeMemStats registers runtime metrics for the Go runtime statistics
+// exported in runtime and specifically runtime.MemStats. The runtimeMetrics are
+// named by their fully-qualified Go symbols, i.e. runtime.MemStats.Alloc.
 func RegisterRuntimeMemStats(r Registry) {
 	registerRuntimeMetricsOnce.Do(func() {
-		runtimeMetrics.MemStats.Alloc = NewGauge()
-		runtimeMetrics.MemStats.BuckHashSys = NewGauge()
-		runtimeMetrics.MemStats.DebugGC = NewGauge()
-		runtimeMetrics.MemStats.EnableGC = NewGauge()
-		runtimeMetrics.MemStats.Frees = NewGauge()
-		runtimeMetrics.MemStats.HeapAlloc = NewGauge()
-		runtimeMetrics.MemStats.HeapIdle = NewGauge()
-		runtimeMetrics.MemStats.HeapInuse = NewGauge()
-		runtimeMetrics.MemStats.HeapObjects = NewGauge()
-		runtimeMetrics.MemStats.HeapReleased = NewGauge()
-		runtimeMetrics.MemStats.HeapSys = NewGauge()
-		runtimeMetrics.MemStats.LastGC = NewGauge()
-		runtimeMetrics.MemStats.Lookups = NewGauge()
-		runtimeMetrics.MemStats.Mallocs = NewGauge()
-		runtimeMetrics.MemStats.MCacheInuse = NewGauge()
-		runtimeMetrics.MemStats.MCacheSys = NewGauge()
-		runtimeMetrics.MemStats.MSpanInuse = NewGauge()
-		runtimeMetrics.MemStats.MSpanSys = NewGauge()
-		runtimeMetrics.MemStats.NextGC = NewGauge()
-		runtimeMetrics.MemStats.NumGC = NewGauge()
-		runtimeMetrics.MemStats.GCCPUFraction = NewGaugeFloat64()
-		runtimeMetrics.MemStats.PauseNs = NewHistogram(NewExpDecaySample(1028, 0.015))
-		runtimeMetrics.MemStats.PauseTotalNs = NewGauge()
-		runtimeMetrics.MemStats.StackInuse = NewGauge()
-		runtimeMetrics.MemStats.StackSys = NewGauge()
-		runtimeMetrics.MemStats.Sys = NewGauge()
-		runtimeMetrics.MemStats.TotalAlloc = NewGauge()
-		runtimeMetrics.NumCgoCall = NewGauge()
-		runtimeMetrics.NumGoroutine = NewGauge()
-		runtimeMetrics.NumThread = NewGauge()
-		runtimeMetrics.ReadMemStats = NewTimer()
+		runtimeMetrics.MemStats.Alloc = NewGauge(nil)
+		runtimeMetrics.MemStats.BuckHashSys = NewGauge(nil)
+		runtimeMetrics.MemStats.DebugGC = NewGauge(nil)
+		runtimeMetrics.MemStats.EnableGC = NewGauge(nil)
+		runtimeMetrics.MemStats.Frees = NewGauge(nil)
+		runtimeMetrics.MemStats.HeapAlloc = NewGauge(nil)
+		runtimeMetrics.MemStats.HeapIdle = NewGauge(nil)
+		runtimeMetrics.MemStats.HeapInuse = NewGauge(nil)
+		runtimeMetrics.MemStats.HeapObjects = NewGauge(nil)
+		runtimeMetrics.MemStats.HeapReleased = NewGauge(nil)
+		runtimeMetrics.MemStats.HeapSys = NewGauge(nil)
+		runtimeMetrics.MemStats.LastGC = NewGauge(nil)
+		runtimeMetrics.MemStats.Lookups = NewGauge(nil)
+		runtimeMetrics.MemStats.Mallocs = NewGauge(nil)
+		runtimeMetrics.MemStats.MCacheInuse = NewGauge(nil)
+		runtimeMetrics.MemStats.MCacheSys = NewGauge(nil)
+		runtimeMetrics.MemStats.MSpanInuse = NewGauge(nil)
+		runtimeMetrics.MemStats.MSpanSys = NewGauge(nil)
+		runtimeMetrics.MemStats.NextGC = NewGauge(nil)
+		runtimeMetrics.MemStats.NumGC = NewGauge(nil)
+		runtimeMetrics.MemStats.GCCPUFraction = NewGaugeFloat64(nil)
+		runtimeMetrics.MemStats.PauseNs = NewHistogram(NewExpDecaySample(1028, 0.015), nil)
+		runtimeMetrics.MemStats.PauseTotalNs = NewGauge(nil)
+		runtimeMetrics.MemStats.StackInuse = NewGauge(nil)
+		runtimeMetrics.MemStats.StackSys = NewGauge(nil)
+		runtimeMetrics.MemStats.Sys = NewGauge(nil)
+		runtimeMetrics.MemStats.TotalAlloc = NewGauge(nil)
+		runtimeMetrics.NumCgoCall = NewGauge(nil)
+		runtimeMetrics.NumGoroutine = NewGauge(nil)
+		runtimeMetrics.NumThread = NewGauge(nil)
+		runtimeMetrics.ReadMemStats = NewTimer(nil)
 
 		r.Register("runtime.MemStats.Alloc", runtimeMetrics.MemStats.Alloc)
 		r.Register("runtime.MemStats.BuckHashSys", runtimeMetrics.MemStats.BuckHashSys)

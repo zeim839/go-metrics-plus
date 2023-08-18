@@ -10,7 +10,7 @@ import (
 
 const rescaleThreshold = time.Hour
 
-// Samples maintain a statistically-significant selection of values from
+// Sample maintains a statistically-significant selection of values from
 // a stream.
 type Sample interface {
 	Clear()
@@ -41,6 +41,7 @@ type ExpDecaySample struct {
 	reservoirSize int
 	t0, t1        time.Time
 	values        *expDecaySampleHeap
+	rand          *rand.Rand
 }
 
 // NewExpDecaySample constructs a new exponentially-decaying sample with the
@@ -56,6 +57,12 @@ func NewExpDecaySample(reservoirSize int, alpha float64) Sample {
 		values:        newExpDecaySampleHeap(reservoirSize),
 	}
 	s.t1 = s.t0.Add(rescaleThreshold)
+	return s
+}
+
+// SetRand sets the random source (useful in testing).
+func (s *ExpDecaySample) SetRand(prng *rand.Rand) Sample {
+	s.rand = prng
 	return s
 }
 
@@ -168,8 +175,14 @@ func (s *ExpDecaySample) update(t time.Time, v int64) {
 	if s.values.Size() == s.reservoirSize {
 		s.values.Pop()
 	}
+	var f64 float64
+	if s.rand != nil {
+		f64 = s.rand.Float64()
+	} else {
+		f64 = rand.Float64()
+	}
 	s.values.Push(expDecaySample{
-		k: math.Exp(t.Sub(s.t0).Seconds()*s.alpha) / rand.Float64(),
+		k: math.Exp(t.Sub(s.t0).Seconds()*s.alpha) / f64,
 		v: v,
 	})
 	if t.After(s.t1) {
@@ -214,7 +227,7 @@ func (NilSample) Percentiles(ps []float64) []float64 {
 // Size is a no-op.
 func (NilSample) Size() int { return 0 }
 
-// Sample is a no-op.
+// Snapshot is a no-op.
 func (NilSample) Snapshot() Sample { return NilSample{} }
 
 // StdDev is a no-op.
@@ -234,7 +247,7 @@ func (NilSample) Variance() float64 { return 0.0 }
 
 // SampleMax returns the maximum value of the slice of int64.
 func SampleMax(values []int64) int64 {
-	if 0 == len(values) {
+	if len(values) == 0 {
 		return 0
 	}
 	var max int64 = math.MinInt64
@@ -248,7 +261,7 @@ func SampleMax(values []int64) int64 {
 
 // SampleMean returns the mean value of the slice of int64.
 func SampleMean(values []int64) float64 {
-	if 0 == len(values) {
+	if len(values) == 0 {
 		return 0.0
 	}
 	return float64(SampleSum(values)) / float64(len(values))
@@ -256,7 +269,7 @@ func SampleMean(values []int64) float64 {
 
 // SampleMin returns the minimum value of the slice of int64.
 func SampleMin(values []int64) int64 {
-	if 0 == len(values) {
+	if len(values) == 0 {
 		return 0
 	}
 	var min int64 = math.MaxInt64
@@ -268,7 +281,7 @@ func SampleMin(values []int64) int64 {
 	return min
 }
 
-// SamplePercentiles returns an arbitrary percentile of the slice of int64.
+// SamplePercentile returns an arbitrary percentile of the slice of int64.
 func SamplePercentile(values int64Slice, p float64) float64 {
 	return SamplePercentiles(values, []float64{p})[0]
 }
@@ -302,6 +315,8 @@ type SampleSnapshot struct {
 	values []int64
 }
 
+// NewSampleSnapshot creates a new instance of SampleSnapshot with the given
+// count and values.
 func NewSampleSnapshot(count int64, values []int64) *SampleSnapshot {
 	return &SampleSnapshot{
 		count:  count,
@@ -382,7 +397,7 @@ func SampleSum(values []int64) int64 {
 
 // SampleVariance returns the variance of the slice of int64.
 func SampleVariance(values []int64) float64 {
-	if 0 == len(values) {
+	if len(values) == 0 {
 		return 0.0
 	}
 	m := SampleMean(values)
@@ -394,14 +409,14 @@ func SampleVariance(values []int64) float64 {
 	return sum / float64(len(values))
 }
 
-// A uniform sample using Vitter's Algorithm R.
-//
+// A UniformSample is a sample using Vitter's Algorithm R.
 // <http://www.cs.umd.edu/~samir/498/vitter.pdf>
 type UniformSample struct {
 	count         int64
 	mutex         sync.Mutex
 	reservoirSize int
 	values        []int64
+	rand          *rand.Rand
 }
 
 // NewUniformSample constructs a new uniform sample with the given reservoir
@@ -414,6 +429,12 @@ func NewUniformSample(reservoirSize int) Sample {
 		reservoirSize: reservoirSize,
 		values:        make([]int64, 0, reservoirSize),
 	}
+}
+
+// SetRand sets the random source (useful in tests).
+func (s *UniformSample) SetRand(prng *rand.Rand) Sample {
+	s.rand = prng
+	return s
 }
 
 // Clear clears all samples.
@@ -511,7 +532,12 @@ func (s *UniformSample) Update(v int64) {
 	if len(s.values) < s.reservoirSize {
 		s.values = append(s.values, v)
 	} else {
-		r := rand.Int63n(s.count)
+		var r int64
+		if s.rand != nil {
+			r = s.rand.Int63n(s.count)
+		} else {
+			r = rand.Int63n(s.count)
+		}
 		if r < int64(len(s.values)) {
 			s.values[int(r)] = v
 		}

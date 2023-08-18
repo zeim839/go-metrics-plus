@@ -21,18 +21,19 @@ var (
 	registerDebugMetricsOnce = sync.Once{}
 )
 
-// Capture new values for the Go garbage collector statistics exported in
-// debug.GCStats.  This is designed to be called as a goroutine.
+// CaptureDebugGCStats captures new values for the Go garbage collector
+// statistics exported in debug.GCStats. This is designed to be called as a
+// goroutine.
 func CaptureDebugGCStats(r Registry, d time.Duration) {
-	for _ = range time.Tick(d) {
+	for range time.Tick(d) {
 		CaptureDebugGCStatsOnce(r)
 	}
 }
 
-// Capture new values for the Go garbage collector statistics exported in
-// debug.GCStats.  This is designed to be called in a background goroutine.
-// Giving a registry which has not been given to RegisterDebugGCStats will
-// panic.
+// CaptureDebugGCStatsOnce capture new values for the Go garbage collector
+// statistics exported in debug.GCStats. This is designed to be called in a
+// background goroutine. Giving a registry which has not been given to
+// RegisterDebugGCStats will panic.
 //
 // Be careful (but much less so) with this because debug.ReadGCStats calls
 // the C function runtime·lock(runtime·mheap) which, while not a stop-the-world
@@ -52,22 +53,20 @@ func CaptureDebugGCStatsOnce(r Registry) {
 	debugMetrics.GCStats.PauseTotal.Update(int64(gcStats.PauseTotal))
 }
 
-// Register metrics for the Go garbage collector statistics exported in
-// debug.GCStats.  The metrics are named by their fully-qualified Go symbols,
-// i.e. debug.GCStats.PauseTotal.
+// RegisterDebugGCStats registers metrics for the Go garbage collector statistics
+// exported in debug.GCStats.  The metrics are named by their fully-qualified Go
+// symbols, i.e. debug.GCStats.PauseTotal.
 func RegisterDebugGCStats(r Registry) {
 	registerDebugMetricsOnce.Do(func() {
-		debugMetrics.GCStats.LastGC = NewGauge()
-		debugMetrics.GCStats.NumGC = NewGauge()
-		debugMetrics.GCStats.Pause = NewHistogram(NewExpDecaySample(1028, 0.015))
-		//debugMetrics.GCStats.PauseQuantiles = NewHistogram(NewExpDecaySample(1028, 0.015))
-		debugMetrics.GCStats.PauseTotal = NewGauge()
-		debugMetrics.ReadGCStats = NewTimer()
+		debugMetrics.GCStats.LastGC = NewGauge(nil)
+		debugMetrics.GCStats.NumGC = NewGauge(nil)
+		debugMetrics.GCStats.Pause = NewHistogram(NewExpDecaySample(1028, 0.015), nil)
+		debugMetrics.GCStats.PauseTotal = NewGauge(nil)
+		debugMetrics.ReadGCStats = NewTimer(nil)
 
 		r.Register("debug.GCStats.LastGC", debugMetrics.GCStats.LastGC)
 		r.Register("debug.GCStats.NumGC", debugMetrics.GCStats.NumGC)
 		r.Register("debug.GCStats.Pause", debugMetrics.GCStats.Pause)
-		//r.Register("debug.GCStats.PauseQuantiles", debugMetrics.GCStats.PauseQuantiles)
 		r.Register("debug.GCStats.PauseTotal", debugMetrics.GCStats.PauseTotal)
 		r.Register("debug.ReadGCStats", debugMetrics.ReadGCStats)
 	})
