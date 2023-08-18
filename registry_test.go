@@ -8,7 +8,7 @@ import (
 
 func BenchmarkRegistry(b *testing.B) {
 	r := NewRegistry()
-	r.Register("foo", NewCounter())
+	r.Register("foo", NewCounter(nil))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		r.Each(func(string, interface{}) {})
@@ -18,7 +18,7 @@ func BenchmarkRegistry(b *testing.B) {
 func BenchmarkHugeRegistry(b *testing.B) {
 	r := NewRegistry()
 	for i := 0; i < 10000; i++ {
-		r.Register(fmt.Sprintf("foo%07d", i), NewCounter())
+		r.Register(fmt.Sprintf("foo%07d", i), NewCounter(nil))
 	}
 	v := make([]string, 10000)
 	b.ResetTimer()
@@ -35,41 +35,41 @@ func BenchmarkRegistryParallel(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			r.GetOrRegister("foo", NewCounter())
+			r.GetOrRegister("foo", NewCounter(nil))
 		}
 	})
 }
 
 func TestRegistry(t *testing.T) {
 	r := NewRegistry()
-	r.Register("foo", NewCounter())
+	r.Register("foo", NewCounter(nil))
 	i := 0
 	r.Each(func(name string, iface interface{}) {
 		i++
-		if "foo" != name {
+		if name != "foo" {
 			t.Fatal(name)
 		}
 		if _, ok := iface.(Counter); !ok {
 			t.Fatal(iface)
 		}
 	})
-	if 1 != i {
+	if i != 1 {
 		t.Fatal(i)
 	}
 	r.Unregister("foo")
 	i = 0
 	r.Each(func(string, interface{}) { i++ })
-	if 0 != i {
+	if i != 0 {
 		t.Fatal(i)
 	}
 }
 
 func TestRegistryDuplicate(t *testing.T) {
 	r := NewRegistry()
-	if err := r.Register("foo", NewCounter()); nil != err {
+	if err := r.Register("foo", NewCounter(nil)); nil != err {
 		t.Fatal(err)
 	}
-	if err := r.Register("foo", NewGauge()); nil == err {
+	if err := r.Register("foo", NewGauge(nil)); nil == err {
 		t.Fatal(err)
 	}
 	i := 0
@@ -79,19 +79,19 @@ func TestRegistryDuplicate(t *testing.T) {
 			t.Fatal(iface)
 		}
 	})
-	if 1 != i {
+	if i != 1 {
 		t.Fatal(i)
 	}
 }
 
 func TestRegistryGet(t *testing.T) {
 	r := NewRegistry()
-	r.Register("foo", NewCounter())
-	if count := r.Get("foo").(Counter).Count(); 0 != count {
+	r.Register("foo", NewCounter(nil))
+	if count := r.Get("foo").(Counter).Count(); count != 0 {
 		t.Fatal(count)
 	}
 	r.Get("foo").(Counter).Inc(1)
-	if count := r.Get("foo").(Counter).Count(); 1 != count {
+	if count := r.Get("foo").(Counter).Count(); count != 1 {
 		t.Fatal(count)
 	}
 }
@@ -100,8 +100,8 @@ func TestRegistryGetOrRegister(t *testing.T) {
 	r := NewRegistry()
 
 	// First metric wins with GetOrRegister
-	_ = r.GetOrRegister("foo", NewCounter())
-	m := r.GetOrRegister("foo", NewGauge())
+	_ = r.GetOrRegister("foo", NewCounter(nil))
+	m := r.GetOrRegister("foo", NewGauge(nil))
 	if _, ok := m.(Counter); !ok {
 		t.Fatal(m)
 	}
@@ -125,8 +125,8 @@ func TestRegistryGetOrRegisterWithLazyInstantiation(t *testing.T) {
 	r := NewRegistry()
 
 	// First metric wins with GetOrRegister
-	_ = r.GetOrRegister("foo", NewCounter)
-	m := r.GetOrRegister("foo", NewGauge)
+	_ = r.GetOrRegister("foo", func() Counter { return NewCounter(nil) })
+	m := r.GetOrRegister("foo", func() Gauge { return NewGauge(nil) })
 	if _, ok := m.(Counter); !ok {
 		t.Fatal(m)
 	}
@@ -147,19 +147,27 @@ func TestRegistryGetOrRegisterWithLazyInstantiation(t *testing.T) {
 }
 
 func TestRegistryUnregister(t *testing.T) {
-	l := len(arbiter.meters)
 	r := NewRegistry()
-	r.Register("foo", NewCounter())
-	r.Register("bar", NewMeter())
-	r.Register("baz", NewTimer())
-	if len(arbiter.meters) != l+2 {
-		t.Errorf("arbiter.meters: %d != %d\n", l+2, len(arbiter.meters))
+
+	r.Register("foo", NewCounter(nil))
+	r.Register("bar", NewMeter(nil))
+	r.Register("baz", NewTimer(nil))
+	count := 0
+	counter := func(name string, i interface{}) {
+		count++
 	}
+	r.Each(counter)
+	if count != 3 {
+		t.Errorf("r.Register() count: %d != %d\n", 3, count)
+	}
+
 	r.Unregister("foo")
 	r.Unregister("bar")
 	r.Unregister("baz")
-	if len(arbiter.meters) != l {
-		t.Errorf("arbiter.meters: %d != %d\n", l+2, len(arbiter.meters))
+	count = 0
+	r.Each(counter)
+	if count != 0 {
+		t.Errorf("r.Unregister() count: %d != %d\n", 0, count)
 	}
 }
 
@@ -167,7 +175,7 @@ func TestPrefixedChildRegistryGetOrRegister(t *testing.T) {
 	r := NewRegistry()
 	pr := NewPrefixedChildRegistry(r, "prefix.")
 
-	_ = pr.GetOrRegister("foo", NewCounter())
+	_ = pr.GetOrRegister("foo", NewCounter(nil))
 
 	i := 0
 	r.Each(func(name string, m interface{}) {
@@ -184,7 +192,7 @@ func TestPrefixedChildRegistryGetOrRegister(t *testing.T) {
 func TestPrefixedRegistryGetOrRegister(t *testing.T) {
 	r := NewPrefixedRegistry("prefix.")
 
-	_ = r.GetOrRegister("foo", NewCounter())
+	_ = r.GetOrRegister("foo", NewCounter(nil))
 
 	i := 0
 	r.Each(func(name string, m interface{}) {
@@ -200,8 +208,8 @@ func TestPrefixedRegistryGetOrRegister(t *testing.T) {
 
 func TestPrefixedRegistryRegister(t *testing.T) {
 	r := NewPrefixedRegistry("prefix.")
-	err := r.Register("foo", NewCounter())
-	c := NewCounter()
+	err := r.Register("foo", NewCounter(nil))
+	c := NewCounter(nil)
 	Register("bar", c)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -222,7 +230,7 @@ func TestPrefixedRegistryRegister(t *testing.T) {
 func TestPrefixedRegistryUnregister(t *testing.T) {
 	r := NewPrefixedRegistry("prefix.")
 
-	_ = r.Register("foo", NewCounter())
+	_ = r.Register("foo", NewCounter(nil))
 
 	i := 0
 	r.Each(func(name string, m interface{}) {
@@ -250,7 +258,7 @@ func TestPrefixedRegistryUnregister(t *testing.T) {
 func TestPrefixedRegistryGet(t *testing.T) {
 	pr := NewPrefixedRegistry("prefix.")
 	name := "foo"
-	pr.Register(name, NewCounter())
+	pr.Register(name, NewCounter(nil))
 
 	fooCounter := pr.Get(name)
 	if fooCounter == nil {
@@ -262,7 +270,7 @@ func TestPrefixedChildRegistryGet(t *testing.T) {
 	r := NewRegistry()
 	pr := NewPrefixedChildRegistry(r, "prefix.")
 	name := "foo"
-	pr.Register(name, NewCounter())
+	pr.Register(name, NewCounter(nil))
 	fooCounter := pr.Get(name)
 	if fooCounter == nil {
 		t.Fatal(name)
@@ -271,8 +279,8 @@ func TestPrefixedChildRegistryGet(t *testing.T) {
 
 func TestChildPrefixedRegistryRegister(t *testing.T) {
 	r := NewPrefixedChildRegistry(DefaultRegistry, "prefix.")
-	err := r.Register("foo", NewCounter())
-	c := NewCounter()
+	err := r.Register("foo", NewCounter(nil))
+	c := NewCounter(nil)
 	Register("bar", c)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -293,19 +301,22 @@ func TestChildPrefixedRegistryRegister(t *testing.T) {
 func TestChildPrefixedRegistryOfChildRegister(t *testing.T) {
 	r := NewPrefixedChildRegistry(NewRegistry(), "prefix.")
 	r2 := NewPrefixedChildRegistry(r, "prefix2.")
-	err := r.Register("foo2", NewCounter())
+	err := r.Register("foo2", NewCounter(nil))
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	err = r2.Register("baz", NewCounter())
-	c := NewCounter()
+	err = r2.Register("baz", NewCounter(nil))
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	c := NewCounter(nil)
 	Register("bars", c)
 
 	i := 0
 	r2.Each(func(name string, m interface{}) {
 		i++
 		if name != "prefix.prefix2.baz" {
-			//t.Fatal(name)
+			t.Fatal(name)
 		}
 	})
 	if i != 1 {
@@ -316,16 +327,19 @@ func TestChildPrefixedRegistryOfChildRegister(t *testing.T) {
 func TestWalkRegistries(t *testing.T) {
 	r := NewPrefixedChildRegistry(NewRegistry(), "prefix.")
 	r2 := NewPrefixedChildRegistry(r, "prefix2.")
-	err := r.Register("foo2", NewCounter())
+	err := r.Register("foo2", NewCounter(nil))
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	err = r2.Register("baz", NewCounter())
-	c := NewCounter()
+	err = r2.Register("baz", NewCounter(nil))
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	c := NewCounter(nil)
 	Register("bars", c)
 
 	_, prefix := findPrefix(r2, "")
-	if "prefix.prefix2." != prefix {
+	if prefix != "prefix.prefix2." {
 		t.Fatal(prefix)
 	}
 }
@@ -333,7 +347,7 @@ func TestWalkRegistries(t *testing.T) {
 func TestConcurrentRegistryAccess(t *testing.T) {
 	r := NewRegistry()
 
-	counter := NewCounter()
+	counter := NewCounter(nil)
 
 	signalChan := make(chan struct{})
 
@@ -345,10 +359,12 @@ func TestConcurrentRegistryAccess(t *testing.T) {
 			iface := r.GetOrRegister("foo", counter)
 			retCounter, ok := iface.(Counter)
 			if !ok {
-				t.Fatal("Expected a Counter type")
+				t.Error("Expected a Counter type")
+				return
 			}
 			if retCounter != counter {
-				t.Fatal("Counter references don't match")
+				t.Error("Counter references don't match")
+				return
 			}
 		}(signalChan)
 	}
@@ -360,20 +376,20 @@ func TestConcurrentRegistryAccess(t *testing.T) {
 	i := 0
 	r.Each(func(name string, iface interface{}) {
 		i++
-		if "foo" != name {
+		if name != "foo" {
 			t.Fatal(name)
 		}
 		if _, ok := iface.(Counter); !ok {
 			t.Fatal(iface)
 		}
 	})
-	if 1 != i {
+	if i != 1 {
 		t.Fatal(i)
 	}
 	r.Unregister("foo")
 	i = 0
 	r.Each(func(string, interface{}) { i++ })
-	if 0 != i {
+	if i != 0 {
 		t.Fatal(i)
 	}
 }
@@ -388,6 +404,6 @@ func TestRegisterAndRegisteredConcurrency(t *testing.T) {
 		r.Each(func(name string, iface interface{}) {
 		})
 	}(r, wg)
-	r.Register("foo", NewCounter())
+	r.Register("foo", NewCounter(nil))
 	wg.Wait()
 }

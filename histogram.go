@@ -1,6 +1,6 @@
 package metrics
 
-// Histograms calculate distribution statistics from a series of int64 values.
+// Histogram calculates distribution statistics from a series of int64 values.
 type Histogram interface {
 	Clear()
 	Count() int64
@@ -15,29 +15,33 @@ type Histogram interface {
 	Sum() int64
 	Update(int64)
 	Variance() float64
+	Labels() Labels
+	WithLabels(Labels) Histogram
 }
 
 // GetOrRegisterHistogram returns an existing Histogram or constructs and
 // registers a new StandardHistogram.
-func GetOrRegisterHistogram(name string, r Registry, s Sample) Histogram {
+func GetOrRegisterHistogram(name string, r Registry, s Sample, labels Labels) Histogram {
 	if nil == r {
 		r = DefaultRegistry
 	}
-	return r.GetOrRegister(name, func() Histogram { return NewHistogram(s) }).(Histogram)
+	return r.GetOrRegister(name, func() Histogram {
+		return NewHistogram(s, labels)
+	}).(Histogram)
 }
 
 // NewHistogram constructs a new StandardHistogram from a Sample.
-func NewHistogram(s Sample) Histogram {
+func NewHistogram(s Sample, labels Labels) Histogram {
 	if UseNilMetrics {
 		return NilHistogram{}
 	}
-	return &StandardHistogram{sample: s}
+	return &StandardHistogram{sample: s, labels: deepCopyLabels(labels)}
 }
 
 // NewRegisteredHistogram constructs and registers a new StandardHistogram from
 // a Sample.
-func NewRegisteredHistogram(name string, r Registry, s Sample) Histogram {
-	c := NewHistogram(s)
+func NewRegisteredHistogram(name string, r Registry, s Sample, labels Labels) Histogram {
+	c := NewHistogram(s, labels)
 	if nil == r {
 		r = DefaultRegistry
 	}
@@ -48,6 +52,7 @@ func NewRegisteredHistogram(name string, r Registry, s Sample) Histogram {
 // HistogramSnapshot is a read-only copy of another Histogram.
 type HistogramSnapshot struct {
 	sample *SampleSnapshot
+	labels Labels
 }
 
 // Clear panics.
@@ -104,6 +109,19 @@ func (*HistogramSnapshot) Update(int64) {
 // Variance returns the variance of inputs at the time the snapshot was taken.
 func (h *HistogramSnapshot) Variance() float64 { return h.sample.Variance() }
 
+// Labels returns a deep copy of the snapshot's labels.
+func (h *HistogramSnapshot) Labels() Labels { return deepCopyLabels(h.labels) }
+
+// WithLabels returns a copy of the snapshot with the given labels appended to
+// the current list of labels.
+func (h *HistogramSnapshot) WithLabels(labels Labels) Histogram {
+	newLabels := h.labels
+	for k, v := range labels {
+		newLabels[k] = v
+	}
+	return &HistogramSnapshot{sample: h.sample, labels: newLabels}
+}
+
 // NilHistogram is a no-op Histogram.
 type NilHistogram struct{}
 
@@ -148,10 +166,17 @@ func (NilHistogram) Update(v int64) {}
 // Variance is a no-op.
 func (NilHistogram) Variance() float64 { return 0.0 }
 
+// Labels is a no-op.
+func (NilHistogram) Labels() Labels { return Labels{} }
+
+// WithLabels is a no-op.
+func (NilHistogram) WithLabels(Labels) Histogram { return NilHistogram{} }
+
 // StandardHistogram is the standard implementation of a Histogram and uses a
 // Sample to bound its memory use.
 type StandardHistogram struct {
 	sample Sample
+	labels Labels
 }
 
 // Clear clears the histogram and its sample.
@@ -186,7 +211,10 @@ func (h *StandardHistogram) Sample() Sample { return h.sample }
 
 // Snapshot returns a read-only copy of the histogram.
 func (h *StandardHistogram) Snapshot() Histogram {
-	return &HistogramSnapshot{sample: h.sample.Snapshot().(*SampleSnapshot)}
+	return &HistogramSnapshot{
+		sample: h.sample.Snapshot().(*SampleSnapshot),
+		labels: h.Labels(),
+	}
 }
 
 // StdDev returns the standard deviation of the values in the sample.
@@ -200,3 +228,12 @@ func (h *StandardHistogram) Update(v int64) { h.sample.Update(v) }
 
 // Variance returns the variance of the values in the sample.
 func (h *StandardHistogram) Variance() float64 { return h.sample.Variance() }
+
+// Labels returns a deep copy of the histogram's labels.
+func (h *StandardHistogram) Labels() Labels { return deepCopyLabels(h.labels) }
+
+// WithLabels returns a snapshot of the Histogram with the given labels appended
+// to the current list of labels.
+func (h *StandardHistogram) WithLabels(labels Labels) Histogram {
+	return h.Snapshot().WithLabels(labels)
+}

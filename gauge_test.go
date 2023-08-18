@@ -1,15 +1,13 @@
 package metrics
 
 import (
-	"fmt"
 	"math/rand"
 	"sync"
 	"testing"
-	"time"
 )
 
 func BenchmarkGuage(b *testing.B) {
-	g := NewGauge()
+	g := NewGauge(nil)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		g.Update(int64(i))
@@ -18,8 +16,7 @@ func BenchmarkGuage(b *testing.B) {
 
 // exercise race detector
 func TestGaugeConcurrency(t *testing.T) {
-	rand.Seed(time.Now().Unix())
-	g := NewGauge()
+	g := NewGauge(nil)
 	wg := &sync.WaitGroup{}
 	reps := 100
 	for i := 0; i < reps; i++ {
@@ -33,27 +30,27 @@ func TestGaugeConcurrency(t *testing.T) {
 }
 
 func TestGauge(t *testing.T) {
-	g := NewGauge()
+	g := NewGauge(nil)
 	g.Update(int64(47))
-	if v := g.Value(); 47 != v {
+	if v := g.Value(); v != 47 {
 		t.Errorf("g.Value(): 47 != %v\n", v)
 	}
 }
 
 func TestGaugeSnapshot(t *testing.T) {
-	g := NewGauge()
+	g := NewGauge(nil)
 	g.Update(int64(47))
 	snapshot := g.Snapshot()
 	g.Update(int64(0))
-	if v := snapshot.Value(); 47 != v {
+	if v := snapshot.Value(); v != 47 {
 		t.Errorf("g.Value(): 47 != %v\n", v)
 	}
 }
 
 func TestGetOrRegisterGauge(t *testing.T) {
 	r := NewRegistry()
-	NewRegisteredGauge("foo", r).Update(47)
-	if g := GetOrRegisterGauge("foo", r); 47 != g.Value() {
+	NewRegisteredGauge("foo", r, nil).Update(47)
+	if g := GetOrRegisterGauge("foo", r, nil); g.Value() != 47 {
 		t.Fatal(g)
 	}
 }
@@ -63,7 +60,7 @@ func TestFunctionalGauge(t *testing.T) {
 	fg := NewFunctionalGauge(func() int64 {
 		counter++
 		return counter
-	})
+	}, nil)
 	fg.Value()
 	fg.Value()
 	if counter != 2 {
@@ -73,15 +70,48 @@ func TestFunctionalGauge(t *testing.T) {
 
 func TestGetOrRegisterFunctionalGauge(t *testing.T) {
 	r := NewRegistry()
-	NewRegisteredFunctionalGauge("foo", r, func() int64 { return 47 })
-	if g := GetOrRegisterGauge("foo", r); 47 != g.Value() {
+	NewRegisteredFunctionalGauge("foo", r, func() int64 { return 47 }, nil)
+	if g := GetOrRegisterGauge("foo", r, nil); g.Value() != 47 {
 		t.Fatal(g)
 	}
 }
 
-func ExampleGetOrRegisterGauge() {
-	m := "server.bytes_sent"
-	g := GetOrRegisterGauge(m, nil)
-	g.Update(47)
-	fmt.Println(g.Value()) // Output: 47
+func TestGaugeLabels(t *testing.T) {
+	labels := Labels{"key1": "value1"}
+	g := NewGauge(labels)
+	if len(g.Labels()) != 1 {
+		t.Fatalf("Labels(): %v != 1", len(g.Labels()))
+	}
+	if lbls := g.Labels()["key1"]; lbls != "value1" {
+		t.Errorf("Labels(): %v != value1", lbls)
+	}
+
+	// Labels passed by value.
+	labels["key1"] = "value2"
+	if lbls := g.Labels()["key1"]; lbls != "value1" {
+		t.Error("Labels(): labels passed by reference")
+	}
+
+	// Labels in snapshot.
+	ss := g.Snapshot()
+	if len(ss.Labels()) != 1 {
+		t.Fatalf("Labels(): %v != 1", len(g.Labels()))
+	}
+	if lbls := ss.Labels()["key1"]; lbls != "value1" {
+		t.Errorf("Labels(): %v != value1", lbls)
+	}
+}
+
+func TestGaugeWithLabels(t *testing.T) {
+	g := NewGauge(Labels{"foo": "bar"})
+	new := g.WithLabels(Labels{"bar": "foo"})
+	if len(new.Labels()) != 2 {
+		t.Fatalf("WithLabels() len: %v != 2", len(new.Labels()))
+	}
+	if lbls := new.Labels()["foo"]; lbls != "bar" {
+		t.Errorf("WithLabels(): %v != bar", lbls)
+	}
+	if lbls := new.Labels()["bar"]; lbls != "foo" {
+		t.Errorf("WithLabels(): %v != foo", lbls)
+	}
 }
