@@ -8,7 +8,7 @@ import (
 )
 
 func BenchmarkMeter(b *testing.B) {
-	m := NewMeter()
+	m := NewMeter(nil)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.Mark(1)
@@ -16,7 +16,7 @@ func BenchmarkMeter(b *testing.B) {
 }
 
 func BenchmarkMeterParallel(b *testing.B) {
-	m := NewMeter()
+	m := NewMeter(nil)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
@@ -27,14 +27,7 @@ func BenchmarkMeterParallel(b *testing.B) {
 
 // exercise race detector
 func TestMeterConcurrency(t *testing.T) {
-	rand.Seed(time.Now().Unix())
-	ma := meterArbiter{
-		ticker: time.NewTicker(time.Millisecond),
-		meters: make(map[*StandardMeter]struct{}),
-	}
-	m := newStandardMeter()
-	ma.meters[m] = struct{}{}
-	go ma.tick()
+	m := newStandardMeter(nil)
 	wg := &sync.WaitGroup{}
 	reps := 100
 	for i := 0; i < reps; i++ {
@@ -43,9 +36,11 @@ func TestMeterConcurrency(t *testing.T) {
 			m.Mark(1)
 			wg.Done()
 		}(m, wg)
+
+		// Test reading from EWMA concurrently.
 		wg.Add(1)
 		go func(m Meter, wg *sync.WaitGroup) {
-			m.Stop()
+			m.Snapshot()
 			wg.Done()
 		}(m, wg)
 	}
@@ -54,20 +49,14 @@ func TestMeterConcurrency(t *testing.T) {
 
 func TestGetOrRegisterMeter(t *testing.T) {
 	r := NewRegistry()
-	NewRegisteredMeter("foo", r).Mark(47)
-	if m := GetOrRegisterMeter("foo", r); 47 != m.Count() {
+	NewRegisteredMeter("foo", r, nil).Mark(47)
+	if m := GetOrRegisterMeter("foo", r, nil); m.Count() != 47 {
 		t.Fatal(m)
 	}
 }
 
 func TestMeterDecay(t *testing.T) {
-	ma := meterArbiter{
-		ticker: time.NewTicker(time.Millisecond),
-		meters: make(map[*StandardMeter]struct{}),
-	}
-	m := newStandardMeter()
-	ma.meters[m] = struct{}{}
-	go ma.tick()
+	m := newStandardMeter(nil)
 	m.Mark(1)
 	rateMean := m.RateMean()
 	time.Sleep(100 * time.Millisecond)
@@ -77,36 +66,65 @@ func TestMeterDecay(t *testing.T) {
 }
 
 func TestMeterNonzero(t *testing.T) {
-	m := NewMeter()
+	m := NewMeter(nil)
 	m.Mark(3)
-	if count := m.Count(); 3 != count {
+	if count := m.Count(); count != 3 {
 		t.Errorf("m.Count(): 3 != %v\n", count)
 	}
 }
 
-func TestMeterStop(t *testing.T) {
-	l := len(arbiter.meters)
-	m := NewMeter()
-	if len(arbiter.meters) != l+1 {
-		t.Errorf("arbiter.meters: %d != %d\n", l+1, len(arbiter.meters))
-	}
-	m.Stop()
-	if len(arbiter.meters) != l {
-		t.Errorf("arbiter.meters: %d != %d\n", l, len(arbiter.meters))
-	}
-}
-
 func TestMeterSnapshot(t *testing.T) {
-	m := NewMeter()
-	m.Mark(1)
-	if snapshot := m.Snapshot(); m.RateMean() != snapshot.RateMean() {
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	m := NewMeter(nil)
+	m.Mark(r.Int63())
+	if snapshot := m.Snapshot(); m.Count() != snapshot.Count() {
 		t.Fatal(snapshot)
 	}
 }
 
 func TestMeterZero(t *testing.T) {
-	m := NewMeter()
-	if count := m.Count(); 0 != count {
+	m := NewMeter(nil)
+	if count := m.Count(); count != 0 {
 		t.Errorf("m.Count(): 0 != %v\n", count)
+	}
+}
+
+func TestMeterLabels(t *testing.T) {
+	labels := Labels{"key1": "value1"}
+	m := NewMeter(labels)
+	if len(m.Labels()) != 1 {
+		t.Fatalf("Labels(): %v != 1", len(m.Labels()))
+	}
+	if lbls := m.Labels()["key1"]; lbls != "value1" {
+		t.Errorf("Labels(): %v != value1", lbls)
+	}
+
+	// Labels passed by value.
+	labels["key1"] = "value3"
+	if lbls := m.Labels()["key1"]; lbls != "value1" {
+		t.Error("Labels(): labels passed by reference")
+	}
+
+	// Labels in snapshot.
+	ss := m.Snapshot()
+	if len(ss.Labels()) != 1 {
+		t.Fatalf("Labels(): %v != 1", len(m.Labels()))
+	}
+	if lbls := ss.Labels()["key1"]; lbls != "value1" {
+		t.Errorf("Labels(): %v != value1", lbls)
+	}
+}
+
+func TestMeterWithLabels(t *testing.T) {
+	m := NewMeter(Labels{"foo": "bar"})
+	new := m.WithLabels(Labels{"bar": "foo"})
+	if len(new.Labels()) != 2 {
+		t.Fatalf("WithLabels() len: %v != 2", len(new.Labels()))
+	}
+	if lbls := new.Labels()["foo"]; lbls != "bar" {
+		t.Errorf("WithLabels(): %v != bar", lbls)
+	}
+	if lbls := new.Labels()["bar"]; lbls != "foo" {
+		t.Errorf("WithLabels(): %v != foo", lbls)
 	}
 }
