@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// Timers capture the duration and rate of events.
+// Timer captures the duration and rate of events.
 type Timer interface {
 	Count() int64
 	Max() int64
@@ -19,42 +19,45 @@ type Timer interface {
 	RateMean() float64
 	Snapshot() Timer
 	StdDev() float64
-	Stop()
 	Sum() int64
 	Time(func())
 	Update(time.Duration)
 	UpdateSince(time.Time)
 	Variance() float64
+	Labels() Labels
+	WithLabels(Labels) Timer
 }
 
 // GetOrRegisterTimer returns an existing Timer or constructs and registers a
 // new StandardTimer.
 // Be sure to unregister the meter from the registry once it is of no use to
 // allow for garbage collection.
-func GetOrRegisterTimer(name string, r Registry) Timer {
+func GetOrRegisterTimer(name string, r Registry, labels Labels) Timer {
 	if nil == r {
 		r = DefaultRegistry
 	}
-	return r.GetOrRegister(name, NewTimer).(Timer)
+	return r.GetOrRegister(name, func() Timer {
+		return NewTimer(labels)
+	}).(Timer)
 }
 
 // NewCustomTimer constructs a new StandardTimer from a Histogram and a Meter.
-// Be sure to call Stop() once the timer is of no use to allow for garbage collection.
-func NewCustomTimer(h Histogram, m Meter) Timer {
+func NewCustomTimer(h Histogram, m Meter, labels Labels) Timer {
 	if UseNilMetrics {
 		return NilTimer{}
 	}
 	return &StandardTimer{
 		histogram: h,
 		meter:     m,
+		labels:    deepCopyLabels(labels),
 	}
 }
 
 // NewRegisteredTimer constructs and registers a new StandardTimer.
 // Be sure to unregister the meter from the registry once it is of no use to
 // allow for garbage collection.
-func NewRegisteredTimer(name string, r Registry) Timer {
-	c := NewTimer()
+func NewRegisteredTimer(name string, r Registry, labels Labels) Timer {
+	c := NewTimer(labels)
 	if nil == r {
 		r = DefaultRegistry
 	}
@@ -64,22 +67,19 @@ func NewRegisteredTimer(name string, r Registry) Timer {
 
 // NewTimer constructs a new StandardTimer using an exponentially-decaying
 // sample with the same reservoir size and alpha as UNIX load averages.
-// Be sure to call Stop() once the timer is of no use to allow for garbage collection.
-func NewTimer() Timer {
+func NewTimer(labels Labels) Timer {
 	if UseNilMetrics {
 		return NilTimer{}
 	}
 	return &StandardTimer{
-		histogram: NewHistogram(NewExpDecaySample(1028, 0.015)),
-		meter:     NewMeter(),
+		histogram: NewHistogram(NewExpDecaySample(1028, 0.015), nil),
+		meter:     NewMeter(nil),
+		labels:    deepCopyLabels(labels),
 	}
 }
 
 // NilTimer is a no-op Timer.
-type NilTimer struct {
-	h Histogram
-	m Meter
-}
+type NilTimer struct{}
 
 // Count is a no-op.
 func (NilTimer) Count() int64 { return 0 }
@@ -119,9 +119,6 @@ func (NilTimer) Snapshot() Timer { return NilTimer{} }
 // StdDev is a no-op.
 func (NilTimer) StdDev() float64 { return 0.0 }
 
-// Stop is a no-op.
-func (NilTimer) Stop() {}
-
 // Sum is a no-op.
 func (NilTimer) Sum() int64 { return 0 }
 
@@ -137,12 +134,19 @@ func (NilTimer) UpdateSince(time.Time) {}
 // Variance is a no-op.
 func (NilTimer) Variance() float64 { return 0.0 }
 
+// Labels is a no-op.
+func (NilTimer) Labels() Labels { return Labels{} }
+
+// WithLabels is a no-op.
+func (NilTimer) WithLabels(Labels) Timer { return NilTimer{} }
+
 // StandardTimer is the standard implementation of a Timer and uses a Histogram
 // and Meter.
 type StandardTimer struct {
 	histogram Histogram
 	meter     Meter
 	mutex     sync.Mutex
+	labels    Labels
 }
 
 // Count returns the number of events recorded.
@@ -203,6 +207,7 @@ func (t *StandardTimer) Snapshot() Timer {
 	return &TimerSnapshot{
 		histogram: t.histogram.Snapshot().(*HistogramSnapshot),
 		meter:     t.meter.Snapshot().(*MeterSnapshot),
+		labels:    t.Labels(),
 	}
 }
 
@@ -211,24 +216,19 @@ func (t *StandardTimer) StdDev() float64 {
 	return t.histogram.StdDev()
 }
 
-// Stop stops the meter.
-func (t *StandardTimer) Stop() {
-	t.meter.Stop()
-}
-
 // Sum returns the sum in the sample.
 func (t *StandardTimer) Sum() int64 {
 	return t.histogram.Sum()
 }
 
-// Record the duration of the execution of the given function.
+// Time records the duration of the execution of the given function.
 func (t *StandardTimer) Time(f func()) {
 	ts := time.Now()
 	f()
 	t.Update(time.Since(ts))
 }
 
-// Record the duration of an event.
+// Update records the duration of an event.
 func (t *StandardTimer) Update(d time.Duration) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -236,7 +236,8 @@ func (t *StandardTimer) Update(d time.Duration) {
 	t.meter.Mark(1)
 }
 
-// Record the duration of an event that started at a time and ends now.
+// UpdateSince record the duration of an event that started at the specified
+// time and ends now.
 func (t *StandardTimer) UpdateSince(ts time.Time) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -249,10 +250,22 @@ func (t *StandardTimer) Variance() float64 {
 	return t.histogram.Variance()
 }
 
+// Labels returns a deep copy of the timer's labels.
+func (t *StandardTimer) Labels() Labels {
+	return deepCopyLabels(t.labels)
+}
+
+// WithLabels returns a snapshot of the Timer with the given labels added to the
+// current list of labels.
+func (t *StandardTimer) WithLabels(labels Labels) Timer {
+	return t.Snapshot().WithLabels(labels)
+}
+
 // TimerSnapshot is a read-only copy of another Timer.
 type TimerSnapshot struct {
 	histogram *HistogramSnapshot
 	meter     *MeterSnapshot
+	labels    Labels
 }
 
 // Count returns the number of events recorded at the time the snapshot was
@@ -303,9 +316,6 @@ func (t *TimerSnapshot) Snapshot() Timer { return t }
 // was taken.
 func (t *TimerSnapshot) StdDev() float64 { return t.histogram.StdDev() }
 
-// Stop is a no-op.
-func (t *TimerSnapshot) Stop() {}
-
 // Sum returns the sum at the time the snapshot was taken.
 func (t *TimerSnapshot) Sum() int64 { return t.histogram.Sum() }
 
@@ -327,3 +337,20 @@ func (*TimerSnapshot) UpdateSince(time.Time) {
 // Variance returns the variance of the values at the time the snapshot was
 // taken.
 func (t *TimerSnapshot) Variance() float64 { return t.histogram.Variance() }
+
+// Labels returns a deep copy of the snapshot's labels.
+func (t *TimerSnapshot) Labels() Labels { return deepCopyLabels(t.labels) }
+
+// WithLabels returns a copy of the snapshot with the given labels added to the
+// current list of labels.
+func (t *TimerSnapshot) WithLabels(labels Labels) Timer {
+	newLabels := t.labels
+	for k, v := range labels {
+		newLabels[k] = v
+	}
+	return &TimerSnapshot{
+		histogram: t.histogram,
+		meter:     t.meter,
+		labels:    newLabels,
+	}
+}
