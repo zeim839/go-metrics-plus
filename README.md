@@ -1,4 +1,7 @@
 # go-metrics-plus
+[![Go Reference](https://pkg.go.dev/badge/github.com/zeim839/go-metrics-plus.svg)](https://pkg.go.dev/github.com/zeim839/go-metrics-plus) [![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com) ![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/zeim839/go-metrics-plus/go.yml) ![GitHub go.mod Go version (subdirectory of monorepo)](https://img.shields.io/github/go-mod/go-version/zeim839/go-metrics-plus)
+
+
 
 Go Metrics Library with support for Graphite, InfluxDB, Prometheus, StatsD, and AppOptics. This is a lively fork of RCrowley's [go-metrics](https://github.com/rcrowley/go-metrics) including updated backend drivers, support for labels/tags, and various optimizations.
 
