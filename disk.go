@@ -16,10 +16,67 @@
 
 package metrics
 
+import (
+	"time"
+	"sync"
+)
+
+var (
+	diskStats  DiskStats
+	diskMetrics struct {
+		ReadCount  Gauge
+		ReadBytes  Gauge
+		WriteCount Gauge
+		WriteBytes Gauge
+	}
+	registerDiskMetricsOnce = sync.Once{}
+)
+
 // DiskStats is the per process disk io stats.
 type DiskStats struct {
 	ReadCount  int64 // Number of read operations executed
 	ReadBytes  int64 // Total number of bytes read
 	WriteCount int64 // Number of write operations executed
 	WriteBytes int64 // Total number of byte written
+}
+
+// CaptureDiskStats captures new values for the Go process disk usage
+// statistics exported in disk.DiskStats. This is designed to be called as a
+// goroutine.
+func CaptureDiskStats(d time.Duration) {
+	for range time.Tick(d) {
+		CaptureDiskStatsOnce()
+	}
+}
+
+// CaptureDiskStatsOnce captures new values for the Go process disk usage
+// statistics exported in disk.DiskStats. This is designed to be called in a
+// background goroutine.
+func CaptureDiskStatsOnce() {
+	err := ReadDiskStats(&diskStats)
+	if err != nil {
+		panic(err)
+	}
+	diskMetrics.ReadCount.Update(diskStats.ReadCount)
+	diskMetrics.ReadBytes.Update(diskStats.ReadBytes)
+	diskMetrics.WriteCount.Update(diskStats.WriteCount)
+	diskMetrics.WriteBytes.Update(diskStats.WriteBytes)
+}
+
+// RegisterDiskStats registers metrics for the Go process disk usage statistics
+// exported in disk.DiskStats.
+func RegisterDiskStats(r Registry) {
+	if r == nil {
+		r = DefaultRegistry
+	}
+	registerDiskMetricsOnce.Do(func() {
+		diskMetrics.ReadCount = NewGauge(nil)
+		diskMetrics.ReadBytes = NewGauge(nil)
+		diskMetrics.WriteCount = NewGauge(nil)
+		diskMetrics.WriteBytes = NewGauge(nil)
+		r.Register("disk.DiskStats.ReadCount", diskMetrics.ReadCount)
+		r.Register("disk.DiskStats.ReadBytes", diskMetrics.ReadBytes)
+		r.Register("disk.DiskStats.WriteCount", diskMetrics.WriteCount)
+		r.Register("disk.DiskStats.WriteBytes", diskMetrics.WriteBytes)
+	})
 }

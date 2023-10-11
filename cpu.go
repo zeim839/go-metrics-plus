@@ -16,10 +16,63 @@
 
 package metrics
 
+import (
+	"time"
+	"sync"
+)
+
+var (
+	cpuStats CPUStats
+	cpuMetrics struct {
+		GlobalTime GaugeFloat64
+		GlobalWait GaugeFloat64
+		LocalTime GaugeFloat64
+	}
+	registerCPUMetricsOnce = sync.Once{}
+)
+
 // CPUStats is the system and process CPU stats.
 // All values are in seconds.
 type CPUStats struct {
 	GlobalTime float64 // Time spent by the CPU working on all processes.
 	GlobalWait float64 // Time spent by waiting on disk for all processes.
 	LocalTime  float64 // Time spent by the CPU working on this process.
+}
+
+// CaptureCPUStats captures new values for the Go process CPU usage
+// statistics exported in cpu.CPUStats. This is designed to be called as a
+// goroutine.
+func CaptureCPUStats(d time.Duration) {
+	for range time.Tick(d) {
+		CaptureCPUStatsOnce()
+	}
+}
+
+// CaptureCPUStatsOnce captures new values for the Go process CPU usage
+// statistics exported in cpu.CPUStats. This is designed to be called in a
+// background goroutine.
+func CaptureCPUStatsOnce() {
+	err := ReadCPUStats(&cpuStats)
+	if err != nil {
+		panic(err)
+	}
+	cpuMetrics.GlobalTime.Update(cpuStats.GlobalTime)
+	cpuMetrics.GlobalWait.Update(cpuStats.GlobalWait)
+	cpuMetrics.LocalTime.Update(cpuStats.LocalTime)
+}
+
+// RegisterCPUStats registers metrics for the Go process CPU usage statistics
+// exported in cpu.CPUStats.
+func RegisterCPUStats(r Registry) {
+	if r == nil {
+		r = DefaultRegistry
+	}
+	registerCPUMetricsOnce.Do(func() {
+		cpuMetrics.GlobalTime = NewGaugeFloat64(nil)
+		cpuMetrics.GlobalWait = NewGaugeFloat64(nil)
+		cpuMetrics.LocalTime = NewGaugeFloat64(nil)
+		r.Register("cpu.CPUStats.GlobalTime", cpuMetrics.GlobalTime)
+		r.Register("cpu.CPUStats.GlobalWait", cpuMetrics.GlobalWait)
+		r.Register("cpu.CPUStats.LocalTime", cpuMetrics.LocalTime)
+	})
 }
