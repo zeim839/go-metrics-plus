@@ -57,6 +57,9 @@ func CaptureDebugGCStatsOnce(r Registry) {
 // exported in debug.GCStats.  The metrics are named by their fully-qualified Go
 // symbols, i.e. debug.GCStats.PauseTotal.
 func RegisterDebugGCStats(r Registry) {
+	if r == nil {
+		r = DefaultRegistry
+	}
 	registerDebugMetricsOnce.Do(func() {
 		debugMetrics.GCStats.LastGC = NewGauge(nil)
 		debugMetrics.GCStats.NumGC = NewGauge(nil)

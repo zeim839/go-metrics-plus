@@ -54,7 +54,7 @@ var (
 	registerRuntimeMetricsOnce = sync.Once{}
 )
 
-// CaptureRuntimeMemStats caprutes new values for the Go runtime statistics
+// CaptureRuntimeMemStats captures new values for the Go runtime statistics
 // exported in runtime.MemStats. This is designed to be called as a goroutine.
 func CaptureRuntimeMemStats(r Registry, d time.Duration) {
 	for range time.Tick(d) {
@@ -148,6 +148,9 @@ func CaptureRuntimeMemStatsOnce(r Registry) {
 // exported in runtime and specifically runtime.MemStats. The runtimeMetrics are
 // named by their fully-qualified Go symbols, i.e. runtime.MemStats.Alloc.
 func RegisterRuntimeMemStats(r Registry) {
+	if r == nil {
+		r = DefaultRegistry
+	}
 	registerRuntimeMetricsOnce.Do(func() {
 		runtimeMetrics.MemStats.Alloc = NewGauge(nil)
 		runtimeMetrics.MemStats.BuckHashSys = NewGauge(nil)
