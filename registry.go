@@ -154,16 +154,12 @@ func (r *StandardRegistry) GetAll() map[string]map[string]interface{} {
 		switch metric := i.(type) {
 		case Counter:
 			values["count"] = metric.Count()
-			values["labels"] = metric.Labels()
 		case Gauge:
 			values["value"] = metric.Value()
-			values["labels"] = metric.Labels()
 		case GaugeFloat64:
 			values["value"] = metric.Value()
-			values["labels"] = metric.Labels()
 		case Healthcheck:
 			values["error"] = nil
-			values["labels"] = metric.Labels()
 			metric.Check()
 			if err := metric.Error(); nil != err {
 				values["error"] = metric.Error().Error()
@@ -181,7 +177,6 @@ func (r *StandardRegistry) GetAll() map[string]map[string]interface{} {
 			values["95%"] = ps[2]
 			values["99%"] = ps[3]
 			values["99.9%"] = ps[4]
-			values["labels"] = metric.Labels()
 		case Meter:
 			m := metric.Snapshot()
 			values["count"] = m.Count()
@@ -189,7 +184,6 @@ func (r *StandardRegistry) GetAll() map[string]map[string]interface{} {
 			values["5m.rate"] = m.Rate5()
 			values["15m.rate"] = m.Rate15()
 			values["mean.rate"] = m.RateMean()
-			values["labels"] = metric.Labels()
 		case Timer:
 			t := metric.Snapshot()
 			ps := t.Percentiles([]float64{0.5, 0.75, 0.95, 0.99, 0.999})
@@ -207,7 +201,6 @@ func (r *StandardRegistry) GetAll() map[string]map[string]interface{} {
 			values["5m.rate"] = t.Rate5()
 			values["15m.rate"] = t.Rate15()
 			values["mean.rate"] = t.RateMean()
-			values["labels"] = metric.Labels()
 		}
 		data[name] = values
 	})

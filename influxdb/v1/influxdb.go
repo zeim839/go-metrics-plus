@@ -66,7 +66,6 @@ func influxdb(c *Config) error {
 			m := metric.Snapshot()
 			pts = append(pts, client.Point{
 				Measurement: prefix + name,
-				Tags:        m.Labels(),
 				Time:        now,
 				Fields: map[string]interface{}{
 					"count": m.Count(),
@@ -76,7 +75,6 @@ func influxdb(c *Config) error {
 			m := metric.Snapshot()
 			pts = append(pts, client.Point{
 				Measurement: prefix + name,
-				Tags:        m.Labels(),
 				Time:        now,
 				Fields: map[string]interface{}{
 					"gauge": m.Value(),
@@ -86,7 +84,6 @@ func influxdb(c *Config) error {
 			m := metric.Snapshot()
 			pts = append(pts, client.Point{
 				Measurement: prefix + name,
-				Tags:        m.Labels(),
 				Time:        now,
 				Fields: map[string]interface{}{
 					"gauge": m.Value(),
@@ -96,7 +93,6 @@ func influxdb(c *Config) error {
 			m := metric.Snapshot()
 			pts = append(pts, client.Point{
 				Measurement: prefix + name,
-				Tags:        m.Labels(),
 				Time:        now,
 				Fields: map[string]interface{}{
 					"count":      m.Count(),
@@ -111,7 +107,6 @@ func influxdb(c *Config) error {
 			ps := m.Percentiles([]float64{0.5, 0.75, 0.95, 0.99, 0.999})
 			pts = append(pts, client.Point{
 				Measurement: prefix + name,
-				Tags:        m.Labels(),
 				Time:        now,
 				Fields: map[string]interface{}{
 					"count":           m.Count(),
@@ -137,7 +132,6 @@ func influxdb(c *Config) error {
 			ps := m.Percentiles([]float64{0.5, 0.75, 0.95, 0.99, 0.999})
 			pts = append(pts, client.Point{
 				Measurement: prefix + name,
-				Tags:        m.Labels(),
 				Time:        now,
 				Fields: map[string]interface{}{
 					"count":           m.Count(),

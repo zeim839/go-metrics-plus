@@ -24,40 +24,35 @@ type Timer interface {
 	Update(time.Duration)
 	UpdateSince(time.Time)
 	Variance() float64
-	Labels() Labels
-	WithLabels(Labels) Timer
 }
 
 // GetOrRegisterTimer returns an existing Timer or constructs and registers a
 // new StandardTimer.
 // Be sure to unregister the meter from the registry once it is of no use to
 // allow for garbage collection.
-func GetOrRegisterTimer(name string, r Registry, labels Labels) Timer {
-	if nil == r {
+func GetOrRegisterTimer(name string, r Registry) Timer {
+	if r == nil {
 		r = DefaultRegistry
 	}
-	return r.GetOrRegister(name, func() Timer {
-		return NewTimer(labels)
-	}).(Timer)
+	return r.GetOrRegister(name, NewTimer).(Timer)
 }
 
 // NewCustomTimer constructs a new StandardTimer from a Histogram and a Meter.
-func NewCustomTimer(h Histogram, m Meter, labels Labels) Timer {
+func NewCustomTimer(h Histogram, m Meter) Timer {
 	if UseNilMetrics {
 		return NilTimer{}
 	}
 	return &StandardTimer{
 		histogram: h,
 		meter:     m,
-		labels:    deepCopyLabels(labels),
 	}
 }
 
 // NewRegisteredTimer constructs and registers a new StandardTimer.
 // Be sure to unregister the meter from the registry once it is of no use to
 // allow for garbage collection.
-func NewRegisteredTimer(name string, r Registry, labels Labels) Timer {
-	c := NewTimer(labels)
+func NewRegisteredTimer(name string, r Registry) Timer {
+	c := NewTimer()
 	if nil == r {
 		r = DefaultRegistry
 	}
@@ -67,14 +62,13 @@ func NewRegisteredTimer(name string, r Registry, labels Labels) Timer {
 
 // NewTimer constructs a new StandardTimer using an exponentially-decaying
 // sample with the same reservoir size and alpha as UNIX load averages.
-func NewTimer(labels Labels) Timer {
+func NewTimer() Timer {
 	if UseNilMetrics {
 		return NilTimer{}
 	}
 	return &StandardTimer{
-		histogram: NewHistogram(NewExpDecaySample(1028, 0.015), nil),
-		meter:     NewMeter(nil),
-		labels:    deepCopyLabels(labels),
+		histogram: NewHistogram(NewExpDecaySample(1028, 0.015)),
+		meter:     NewMeter(),
 	}
 }
 
@@ -134,19 +128,12 @@ func (NilTimer) UpdateSince(time.Time) {}
 // Variance is a no-op.
 func (NilTimer) Variance() float64 { return 0.0 }
 
-// Labels is a no-op.
-func (NilTimer) Labels() Labels { return Labels{} }
-
-// WithLabels is a no-op.
-func (NilTimer) WithLabels(Labels) Timer { return NilTimer{} }
-
 // StandardTimer is the standard implementation of a Timer and uses a Histogram
 // and Meter.
 type StandardTimer struct {
 	histogram Histogram
 	meter     Meter
 	mutex     sync.Mutex
-	labels    Labels
 }
 
 // Count returns the number of events recorded.
@@ -207,7 +194,6 @@ func (t *StandardTimer) Snapshot() Timer {
 	return &TimerSnapshot{
 		histogram: t.histogram.Snapshot().(*HistogramSnapshot),
 		meter:     t.meter.Snapshot().(*MeterSnapshot),
-		labels:    t.Labels(),
 	}
 }
 
@@ -250,22 +236,10 @@ func (t *StandardTimer) Variance() float64 {
 	return t.histogram.Variance()
 }
 
-// Labels returns a deep copy of the timer's labels.
-func (t *StandardTimer) Labels() Labels {
-	return deepCopyLabels(t.labels)
-}
-
-// WithLabels returns a snapshot of the Timer with the given labels added to the
-// current list of labels.
-func (t *StandardTimer) WithLabels(labels Labels) Timer {
-	return t.Snapshot().WithLabels(labels)
-}
-
 // TimerSnapshot is a read-only copy of another Timer.
 type TimerSnapshot struct {
 	histogram *HistogramSnapshot
 	meter     *MeterSnapshot
-	labels    Labels
 }
 
 // Count returns the number of events recorded at the time the snapshot was
@@ -337,20 +311,3 @@ func (*TimerSnapshot) UpdateSince(time.Time) {
 // Variance returns the variance of the values at the time the snapshot was
 // taken.
 func (t *TimerSnapshot) Variance() float64 { return t.histogram.Variance() }
-
-// Labels returns a deep copy of the snapshot's labels.
-func (t *TimerSnapshot) Labels() Labels { return deepCopyLabels(t.labels) }
-
-// WithLabels returns a copy of the snapshot with the given labels added to the
-// current list of labels.
-func (t *TimerSnapshot) WithLabels(labels Labels) Timer {
-	newLabels := t.labels
-	for k, v := range labels {
-		newLabels[k] = v
-	}
-	return &TimerSnapshot{
-		histogram: t.histogram,
-		meter:     t.meter,
-		labels:    newLabels,
-	}
-}

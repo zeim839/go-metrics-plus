@@ -14,9 +14,9 @@ import (
 
 func ExamplePrometheus() {
 	// Register some metrics.
-	metrics.GetOrRegisterTimer("myTimer", nil, nil).Update(time.Second)
-	metrics.GetOrRegisterCounter("myCounter", nil, nil).Inc(50)
-	metrics.GetOrRegisterMeter("myMeter", nil, nil).Mark(10)
+	metrics.GetOrRegisterTimer("myTimer", nil).Update(time.Second)
+	metrics.GetOrRegisterCounter("myCounter", nil).Inc(50)
+	metrics.GetOrRegisterMeter("myMeter", nil).Mark(10)
 
 	// Create prometheus driver.
 	r := prometheus.NewRegistry()
@@ -38,8 +38,8 @@ func ExamplePrometheus() {
 func BenchmarkPrometheus(b *testing.B) {
 	s := metrics.NewUniformSample(100)
 	metricRegistry := metrics.NewRegistry()
-	metrics.GetOrRegisterMeter("myMeter", metricRegistry, nil).Mark(420)
-	metrics.GetOrRegisterHistogram("myHist", metricRegistry, s, nil).Update(33)
+	metrics.GetOrRegisterMeter("myMeter", metricRegistry).Mark(420)
+	metrics.GetOrRegisterHistogram("myHist", metricRegistry, s).Update(33)
 
 	r := prometheus.NewRegistry()
 	pr, _ := New(metricRegistry, time.Nanosecond, "ns", "ss", r)
@@ -53,8 +53,8 @@ func BenchmarkPrometheus(b *testing.B) {
 func TestPrometheusConcurrency(t *testing.T) {
 	s := metrics.NewUniformSample(100)
 	metricRegistry := metrics.NewRegistry()
-	metrics.GetOrRegisterMeter("myMeter", metricRegistry, nil).Mark(420)
-	metrics.GetOrRegisterHistogram("myHist", metricRegistry, s, nil).Update(33)
+	metrics.GetOrRegisterMeter("myMeter", metricRegistry).Mark(420)
+	metrics.GetOrRegisterHistogram("myHist", metricRegistry, s).Update(33)
 
 	r := prometheus.NewRegistry()
 	pr, err := New(metricRegistry, time.Nanosecond, "ns", "ss", r)
@@ -90,9 +90,9 @@ func TestPrometheusCreate(t *testing.T) {
 }
 
 func TestPrometheusOnce(t *testing.T) {
-	metrics.GetOrRegisterCounter("counter", nil, nil).Inc(45)
-	metrics.GetOrRegisterGauge("gauge", nil, metrics.Labels{"foo": "bar"}).Update(45)
-	metrics.GetOrRegisterMeter("meter", nil, nil).Mark(45)
+	metrics.GetOrRegisterCounter("counter", nil).Inc(45)
+	metrics.GetOrRegisterGauge("gauge", nil).Update(45)
+	metrics.GetOrRegisterMeter("meter", nil).Mark(45)
 
 	r := prometheus.NewRegistry()
 	pr, err := New(metrics.DefaultRegistry, time.Second, "", "", r)
@@ -115,7 +115,7 @@ func TestPrometheusOnce(t *testing.T) {
 
 	// GaugeFloat64
 	expected = "name:\"gauge_gauge\" help:\"gauge_gauge\" type:GAUGE " +
-		"metric:<label:<name:\"foo\" value:\"bar\" > gauge:<value:45 > > "
+		"metric:<gauge:<value:45 > > "
 	if expected != fmt.Sprint(metrics[1]) {
 		t.Errorf("Once(): %s != %s", expected, metrics[1])
 	}

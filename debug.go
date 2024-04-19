@@ -61,11 +61,11 @@ func RegisterDebugGCStats(r Registry) {
 		r = DefaultRegistry
 	}
 	registerDebugMetricsOnce.Do(func() {
-		debugMetrics.GCStats.LastGC = NewGauge(nil)
-		debugMetrics.GCStats.NumGC = NewGauge(nil)
-		debugMetrics.GCStats.Pause = NewHistogram(NewExpDecaySample(1028, 0.015), nil)
-		debugMetrics.GCStats.PauseTotal = NewGauge(nil)
-		debugMetrics.ReadGCStats = NewTimer(nil)
+		debugMetrics.GCStats.LastGC = NewGauge()
+		debugMetrics.GCStats.NumGC = NewGauge()
+		debugMetrics.GCStats.Pause = NewHistogram(NewExpDecaySample(1028, 0.015))
+		debugMetrics.GCStats.PauseTotal = NewGauge()
+		debugMetrics.ReadGCStats = NewTimer()
 
 		r.Register("debug.GCStats.LastGC", debugMetrics.GCStats.LastGC)
 		r.Register("debug.GCStats.NumGC", debugMetrics.GCStats.NumGC)

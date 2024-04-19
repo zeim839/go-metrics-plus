@@ -10,8 +10,8 @@ import (
 )
 
 func ExampleInfluxDBV1() {
-	m := metrics.GetOrRegisterMeter("myMeter", nil, metrics.Labels{"foo": "bar"})
-	t := metrics.GetOrRegisterTimer("myTimer", nil, nil)
+	m := metrics.GetOrRegisterMeter("myMeter", nil)
+	t := metrics.GetOrRegisterTimer("myTimer", nil)
 	m.Mark(100)
 	t.Update(30 * time.Second)
 

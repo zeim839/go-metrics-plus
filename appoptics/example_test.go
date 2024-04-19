@@ -6,10 +6,10 @@ import (
 )
 
 func ExampleAppOptics() {
-	metrics.GetOrRegisterCounter("myCounter", nil, metrics.Labels{"foo": "bar"})
-	metrics.GetOrRegisterMeter("myMeter", nil, nil)
+	metrics.GetOrRegisterCounter("myCounter", nil)
+	metrics.GetOrRegisterMeter("myMeter", nil)
 
 	go AppOptics(metrics.DefaultRegistry, time.Second, "token",
-		metrics.Labels{"hostname": "localhost"}, []float64{0.5, 0.75, 0.95, 0.99},
+		[]float64{0.5, 0.75, 0.95, 0.99},
 		time.Millisecond, "myservice.", nil, DefaultMeasurementsURI)
 }

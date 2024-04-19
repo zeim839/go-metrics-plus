@@ -70,10 +70,10 @@ func RegisterDiskStats(r Registry) {
 		r = DefaultRegistry
 	}
 	registerDiskMetricsOnce.Do(func() {
-		diskMetrics.ReadCount = NewGauge(nil)
-		diskMetrics.ReadBytes = NewGauge(nil)
-		diskMetrics.WriteCount = NewGauge(nil)
-		diskMetrics.WriteBytes = NewGauge(nil)
+		diskMetrics.ReadCount = NewGauge()
+		diskMetrics.ReadBytes = NewGauge()
+		diskMetrics.WriteCount = NewGauge()
+		diskMetrics.WriteBytes = NewGauge()
 		r.Register("disk.DiskStats.ReadCount", diskMetrics.ReadCount)
 		r.Register("disk.DiskStats.ReadBytes", diskMetrics.ReadBytes)
 		r.Register("disk.DiskStats.WriteCount", diskMetrics.WriteCount)

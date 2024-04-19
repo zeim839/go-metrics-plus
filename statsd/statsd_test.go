@@ -72,8 +72,8 @@ func TestWrites(t *testing.T) {
 	res, ln, c, wg := newTestServer(t, &ctx)
 	defer ln.Close()
 
-	metrics.GetOrRegisterCounter("foo", nil, nil).Inc(2)
-	metrics.GetOrRegisterMeter("bar", nil, nil).Mark(1)
+	metrics.GetOrRegisterCounter("foo", nil).Inc(2)
+	metrics.GetOrRegisterMeter("bar", nil).Mark(1)
 
 	ctx.Store(false)
 	wg.Add(1)

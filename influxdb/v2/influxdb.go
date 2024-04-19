@@ -62,22 +62,22 @@ func influxdb(c *Config) {
 		switch metric := i.(type) {
 		case metrics.Counter:
 			m := metric.Snapshot()
-			p := influx.NewPoint(name, m.Labels(),
+			p := influx.NewPoint(name, nil,
 				map[string]interface{}{"count": m.Count()}, now)
 			api.WritePoint(context.Background(), p)
 		case metrics.Gauge:
 			m := metric.Snapshot()
-			p := influx.NewPoint(name, m.Labels(),
+			p := influx.NewPoint(name, nil,
 				map[string]interface{}{"gauge": m.Value()}, now)
 			api.WritePoint(context.Background(), p)
 		case metrics.GaugeFloat64:
 			m := metric.Snapshot()
-			p := influx.NewPoint(name, m.Labels(),
+			p := influx.NewPoint(name, nil,
 				map[string]interface{}{"gauge": m.Value()}, now)
 			api.WritePoint(context.Background(), p)
 		case metrics.Meter:
 			m := metric.Snapshot()
-			p := influx.NewPoint(name, m.Labels(), map[string]interface{}{
+			p := influx.NewPoint(name, nil, map[string]interface{}{
 				"count":      m.Count(),
 				"rate.1min":  m.Rate1(),
 				"rate.5min":  m.Rate5(),
@@ -88,7 +88,7 @@ func influxdb(c *Config) {
 		case metrics.Timer:
 			m := metric.Snapshot()
 			ps := m.Percentiles([]float64{0.5, 0.75, 0.95, 0.99, 0.999})
-			p := influx.NewPoint(name, m.Labels(), map[string]interface{}{
+			p := influx.NewPoint(name, nil, map[string]interface{}{
 				"count":           m.Count(),
 				"min":             m.Min(),
 				"max":             m.Max(),
@@ -110,7 +110,7 @@ func influxdb(c *Config) {
 		case metrics.Histogram:
 			m := metric.Snapshot()
 			ps := m.Percentiles([]float64{0.5, 0.75, 0.95, 0.99, 0.999})
-			p := influx.NewPoint(name, m.Labels(), map[string]interface{}{
+			p := influx.NewPoint(name, nil, map[string]interface{}{
 				"count":           m.Count(),
 				"min":             m.Min(),
 				"max":             m.Max(),

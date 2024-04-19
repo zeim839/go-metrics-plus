@@ -58,21 +58,15 @@ func NewWithConfig(c Config, p *pr.Registry) (*Prometheus, error) {
 
 // Retrieves or creates a gauge vector for the given name and label set. Not
 // threadsafe, must be called with a mutex.
-func (p *Prometheus) getVector(name string, labels metrics.Labels) *pr.GaugeVec {
+func (p *Prometheus) getVector(name string) *pr.GaugeVec {
 	vec, ok := p.vectors[name]
 	if !ok {
-		// Get label keys.
-		keys := []string{}
-		for k := range labels {
-			keys = append(keys, k)
-		}
 		vec = pr.NewGaugeVec(pr.GaugeOpts{
 			Namespace: p.config.Namespace,
 			Subsystem: p.config.Subsystem,
 			Name:      name,
 			Help:      name,
-		}, keys)
-
+		}, nil)
 		p.vectors[name] = vec
 		p.reg.MustRegister(vec)
 	}
@@ -82,9 +76,9 @@ func (p *Prometheus) getVector(name string, labels metrics.Labels) *pr.GaugeVec 
 // Sets the value of the gauge with name and labels. Prints an error if the
 // gauge cannot be set or labels dont match predefined schema. Not threadsafe,
 // must be called with a mutex.
-func (p *Prometheus) setValue(name string, val float64, labels metrics.Labels) {
-	vec := p.getVector(name, labels)
-	gauge, err := vec.GetMetricWith(pr.Labels(labels))
+func (p *Prometheus) setValue(name string, val float64) {
+	vec := p.getVector(name)
+	gauge, err := vec.GetMetricWith(nil)
 	if err != nil {
 		log.Printf("Error: (metrics) ignoring %s due to error: %s", name, err)
 		return
@@ -101,57 +95,54 @@ func (p *Prometheus) Once() {
 		switch metric := i.(type) {
 		case metrics.Counter:
 			m := metric.Snapshot()
-			p.setValue(name+"_count", float64(m.Count()), m.Labels())
+			p.setValue(name+"_count", float64(m.Count()))
 		case metrics.Gauge:
 			m := metric.Snapshot()
-			p.setValue(name+"_gauge", float64(m.Value()), m.Labels())
+			p.setValue(name+"_gauge", float64(m.Value()))
 		case metrics.GaugeFloat64:
 			m := metric.Snapshot()
-			p.setValue(name+"_gauge", m.Value(), m.Labels())
+			p.setValue(name+"_gauge", m.Value())
 		case metrics.Meter:
 			m := metric.Snapshot()
-			labels := m.Labels()
-			p.setValue(name+"_count", float64(m.Count()), labels)
-			p.setValue(name+"_rate_1min", m.Rate1(), labels)
-			p.setValue(name+"_rate_5min", m.Rate5(), labels)
-			p.setValue(name+"_rate_15min", m.Rate15(), labels)
-			p.setValue(name+"_rate_mean", m.RateMean(), labels)
+			p.setValue(name+"_count", float64(m.Count()))
+			p.setValue(name+"_rate_1min", m.Rate1())
+			p.setValue(name+"_rate_5min", m.Rate5())
+			p.setValue(name+"_rate_15min", m.Rate15())
+			p.setValue(name+"_rate_mean", m.RateMean())
 		case metrics.Timer:
 			m := metric.Snapshot()
 			ps := m.Percentiles([]float64{0.5, 0.75, 0.95, 0.99, 0.999})
-			labels := m.Labels()
-			p.setValue(name+"_count", float64(m.Count()), labels)
-			p.setValue(name+"_min", float64(m.Min()), labels)
-			p.setValue(name+"_max", float64(m.Max()), labels)
-			p.setValue(name+"_mean", m.Mean(), labels)
-			p.setValue(name+"_sum", float64(m.Sum()), labels)
-			p.setValue(name+"_variance", m.Variance(), labels)
-			p.setValue(name+"_stddev", m.StdDev(), labels)
-			p.setValue(name+"_median", ps[0], labels)
-			p.setValue(name+"_percentile_75", ps[1], labels)
-			p.setValue(name+"_percentile_95", ps[2], labels)
-			p.setValue(name+"_percentile_99_0", ps[3], labels)
-			p.setValue(name+"_percentile_99_9", ps[4], labels)
-			p.setValue(name+"_rate_1min", m.Rate1(), labels)
-			p.setValue(name+"_rate_5min", m.Rate5(), labels)
-			p.setValue(name+"_rate_15min", m.Rate15(), labels)
-			p.setValue(name+"_rate_mean", m.RateMean(), labels)
+			p.setValue(name+"_count", float64(m.Count()))
+			p.setValue(name+"_min", float64(m.Min()))
+			p.setValue(name+"_max", float64(m.Max()))
+			p.setValue(name+"_mean", m.Mean())
+			p.setValue(name+"_sum", float64(m.Sum()))
+			p.setValue(name+"_variance", m.Variance())
+			p.setValue(name+"_stddev", m.StdDev())
+			p.setValue(name+"_median", ps[0])
+			p.setValue(name+"_percentile_75", ps[1])
+			p.setValue(name+"_percentile_95", ps[2])
+			p.setValue(name+"_percentile_99_0", ps[3])
+			p.setValue(name+"_percentile_99_9", ps[4])
+			p.setValue(name+"_rate_1min", m.Rate1())
+			p.setValue(name+"_rate_5min", m.Rate5())
+			p.setValue(name+"_rate_15min", m.Rate15())
+			p.setValue(name+"_rate_mean", m.RateMean())
 		case metrics.Histogram:
 			m := metric.Snapshot()
 			ps := m.Percentiles([]float64{0.5, 0.75, 0.95, 0.99, 0.999})
-			labels := m.Labels()
-			p.setValue(name+"_count", float64(m.Count()), labels)
-			p.setValue(name+"_min", float64(m.Min()), labels)
-			p.setValue(name+"_max", float64(m.Max()), labels)
-			p.setValue(name+"_mean", m.Mean(), labels)
-			p.setValue(name+"_sum", float64(m.Sum()), labels)
-			p.setValue(name+"_variance", m.Variance(), labels)
-			p.setValue(name+"_stddev", m.StdDev(), labels)
-			p.setValue(name+"_median", ps[0], labels)
-			p.setValue(name+"_percentile_75", ps[1], labels)
-			p.setValue(name+"_percentile_95", ps[2], labels)
-			p.setValue(name+"_percentile_99_0", ps[3], labels)
-			p.setValue(name+"_percentile_99_9", ps[4], labels)
+			p.setValue(name+"_count", float64(m.Count()))
+			p.setValue(name+"_min", float64(m.Min()))
+			p.setValue(name+"_max", float64(m.Max()))
+			p.setValue(name+"_mean", m.Mean())
+			p.setValue(name+"_sum", float64(m.Sum()))
+			p.setValue(name+"_variance", m.Variance())
+			p.setValue(name+"_stddev", m.StdDev())
+			p.setValue(name+"_median", ps[0])
+			p.setValue(name+"_percentile_75", ps[1])
+			p.setValue(name+"_percentile_95", ps[2])
+			p.setValue(name+"_percentile_99_0", ps[3])
+			p.setValue(name+"_percentile_99_9", ps[4])
 		}
 	})
 }

@@ -21,71 +21,51 @@ func Encode(w io.Writer, name, prefix string, i interface{}) {
 
 	switch metric := i.(type) {
 	case metrics.Counter:
-		fmt.Fprintf(w, "%s%s %d %v\n", head, EncodeLabels(metric.Labels()),
-			metric.Count(), ts)
+		fmt.Fprintf(w, "%s %d %v\n", head, metric.Count(), ts)
 	case metrics.Gauge:
-		fmt.Fprintf(w, "%s%s %d %v\n", head, EncodeLabels(metric.Labels()),
-			metric.Value(), ts)
+		fmt.Fprintf(w, "%s %d %v\n", head, metric.Value(), ts)
 	case metrics.GaugeFloat64:
-		fmt.Fprintf(w, "%s%s %f %v\n", head, EncodeLabels(metric.Labels()),
-			metric.Value(), ts)
+		fmt.Fprintf(w, "%s %f %v\n", head, metric.Value(), ts)
 	case metrics.Meter:
 		m := metric.Snapshot()
-		labels := EncodeLabels(m.Labels())
-		fmt.Fprintf(w, "%s_count%s %d %v\n", head, labels, m.Count(), ts)
-		fmt.Fprintf(w, "%s_rate_1min%s %f %v\n", head, labels, m.Rate1(), ts)
-		fmt.Fprintf(w, "%s_rate_5min%s %f %v\n", head, labels, m.Rate5(), ts)
-		fmt.Fprintf(w, "%s_rate_15min%s %f %v\n", head, labels, m.Rate15(), ts)
-		fmt.Fprintf(w, "%s_rate_mean%s %f %v\n", head, labels, m.RateMean(), ts)
+		fmt.Fprintf(w, "%s_count %d %v\n", head, m.Count(), ts)
+		fmt.Fprintf(w, "%s_rate_1min %f %v\n", head, m.Rate1(), ts)
+		fmt.Fprintf(w, "%s_rate_5min %f %v\n", head, m.Rate5(), ts)
+		fmt.Fprintf(w, "%s_rate_15min %f %v\n", head, m.Rate15(), ts)
+		fmt.Fprintf(w, "%s_rate_mean %f %v\n", head, m.RateMean(), ts)
 	case metrics.Timer:
 		t := metric.Snapshot()
-		labels := EncodeLabels(t.Labels())
 		ps := t.Percentiles([]float64{0.5, 0.75, 0.95, 0.99, 0.999})
-		fmt.Fprintf(w, "%s_count%s %d %v\n", head, labels, t.Count(), ts)
-		fmt.Fprintf(w, "%s_min%s %d %v\n", head, labels, t.Min(), ts)
-		fmt.Fprintf(w, "%s_max%s %d %v\n", head, labels, t.Max(), ts)
-		fmt.Fprintf(w, "%s_mean%s %f %v\n", head, labels, t.Mean(), ts)
-		fmt.Fprintf(w, "%s_sum%s %d %v\n", head, labels, t.Sum(), ts)
-		fmt.Fprintf(w, "%s_stddev%s %f %v\n", head, labels, t.StdDev(), ts)
-		fmt.Fprintf(w, "%s_variance%s %f %v\n", head, labels, t.Variance(), ts)
-		fmt.Fprintf(w, "%s_median%s %f %v\n", head, labels, ps[0], ts)
-		fmt.Fprintf(w, "%s_percentile_75%s %f %v\n", head, labels, ps[1], ts)
-		fmt.Fprintf(w, "%s_percentile_95%s %f %v\n", head, labels, ps[2], ts)
-		fmt.Fprintf(w, "%s_percentile_99_0%s %f %v\n", head, labels, ps[3], ts)
-		fmt.Fprintf(w, "%s_percentile_99_9%s %f %v\n", head, labels, ps[4], ts)
-		fmt.Fprintf(w, "%s_rate_1min%s %f %v\n", head, labels, t.Rate1(), ts)
-		fmt.Fprintf(w, "%s_rate_5min%s %f %v\n", head, labels, t.Rate5(), ts)
-		fmt.Fprintf(w, "%s_rate_15min%s %f %v\n", head, labels, t.Rate15(), ts)
-		fmt.Fprintf(w, "%s_rate_mean%s %f %v\n", head, labels, t.RateMean(), ts)
+		fmt.Fprintf(w, "%s_count %d %v\n", head, t.Count(), ts)
+		fmt.Fprintf(w, "%s_min %d %v\n", head, t.Min(), ts)
+		fmt.Fprintf(w, "%s_max %d %v\n", head, t.Max(), ts)
+		fmt.Fprintf(w, "%s_mean %f %v\n", head, t.Mean(), ts)
+		fmt.Fprintf(w, "%s_sum %d %v\n", head, t.Sum(), ts)
+		fmt.Fprintf(w, "%s_stddev %f %v\n", head, t.StdDev(), ts)
+		fmt.Fprintf(w, "%s_variance %f %v\n", head, t.Variance(), ts)
+		fmt.Fprintf(w, "%s_median %f %v\n", head, ps[0], ts)
+		fmt.Fprintf(w, "%s_percentile_75 %f %v\n", head, ps[1], ts)
+		fmt.Fprintf(w, "%s_percentile_95 %f %v\n", head, ps[2], ts)
+		fmt.Fprintf(w, "%s_percentile_99_0 %f %v\n", head, ps[3], ts)
+		fmt.Fprintf(w, "%s_percentile_99_9 %f %v\n", head, ps[4], ts)
+		fmt.Fprintf(w, "%s_rate_1min %f %v\n", head, t.Rate1(), ts)
+		fmt.Fprintf(w, "%s_rate_5min %f %v\n", head, t.Rate5(), ts)
+		fmt.Fprintf(w, "%s_rate_15min %f %v\n", head, t.Rate15(), ts)
+		fmt.Fprintf(w, "%s_rate_mean %f %v\n", head, t.RateMean(), ts)
 	case metrics.Histogram:
 		h := metric.Snapshot()
-		labels := EncodeLabels(h.Labels())
 		ps := h.Percentiles([]float64{0.5, 0.75, 0.95, 0.99, 0.999})
-		fmt.Fprintf(w, "%s_count%s %d %v\n", head, labels, h.Count(), ts)
-		fmt.Fprintf(w, "%s_min%s %d %v\n", head, labels, h.Min(), ts)
-		fmt.Fprintf(w, "%s_max%s %d %v\n", head, labels, h.Max(), ts)
-		fmt.Fprintf(w, "%s_mean%s %f %v\n", head, labels, h.Mean(), ts)
-		fmt.Fprintf(w, "%s_sum%s %d %v\n", head, labels, h.Sum(), ts)
-		fmt.Fprintf(w, "%s_stddev%s %f %v\n", head, labels, h.StdDev(), ts)
-		fmt.Fprintf(w, "%s_variance%s %f %v\n", head, labels, h.Variance(), ts)
-		fmt.Fprintf(w, "%s_median%s %f %v\n", head, labels, ps[0], ts)
-		fmt.Fprintf(w, "%s_percentile_75%s %f %v\n", head, labels, ps[1], ts)
-		fmt.Fprintf(w, "%s_percentile_95%s %f %v\n", head, labels, ps[2], ts)
-		fmt.Fprintf(w, "%s_percentile_99_0%s %f %v\n", head, labels, ps[3], ts)
-		fmt.Fprintf(w, "%s_percentile_99_9%s %f %v\n", head, labels, ps[4], ts)
+		fmt.Fprintf(w, "%s_count %d %v\n", head, h.Count(), ts)
+		fmt.Fprintf(w, "%s_min %d %v\n", head, h.Min(), ts)
+		fmt.Fprintf(w, "%s_max %d %v\n", head, h.Max(), ts)
+		fmt.Fprintf(w, "%s_mean %f %v\n", head, h.Mean(), ts)
+		fmt.Fprintf(w, "%s_sum %d %v\n", head, h.Sum(), ts)
+		fmt.Fprintf(w, "%s_stddev %f %v\n", head, h.StdDev(), ts)
+		fmt.Fprintf(w, "%s_variance %f %v\n", head, h.Variance(), ts)
+		fmt.Fprintf(w, "%s_median %f %v\n", head, ps[0], ts)
+		fmt.Fprintf(w, "%s_percentile_75 %f %v\n", head, ps[1], ts)
+		fmt.Fprintf(w, "%s_percentile_95 %f %v\n", head, ps[2], ts)
+		fmt.Fprintf(w, "%s_percentile_99_0 %f %v\n", head, ps[3], ts)
+		fmt.Fprintf(w, "%s_percentile_99_9 %f %v\n", head, ps[4], ts)
 	}
-}
-
-// EncodeLabels encodes labels into JSON format. Returns "" if the
-// slice is empty.
-func EncodeLabels(labels metrics.Labels) string {
-	if labels == nil || len(labels) < 1 {
-		return ""
-	}
-	str := "{"
-	for k, v := range labels {
-		str += k + ":\"" + v + "\","
-	}
-	// Remove last comma character and add closing brace.
-	return str[:len(str)-1] + "}"
 }

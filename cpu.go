@@ -68,9 +68,9 @@ func RegisterCPUStats(r Registry) {
 		r = DefaultRegistry
 	}
 	registerCPUMetricsOnce.Do(func() {
-		cpuMetrics.GlobalTime = NewGaugeFloat64(nil)
-		cpuMetrics.GlobalWait = NewGaugeFloat64(nil)
-		cpuMetrics.LocalTime = NewGaugeFloat64(nil)
+		cpuMetrics.GlobalTime = NewGaugeFloat64()
+		cpuMetrics.GlobalWait = NewGaugeFloat64()
+		cpuMetrics.LocalTime = NewGaugeFloat64()
 		r.Register("cpu.CPUStats.GlobalTime", cpuMetrics.GlobalTime)
 		r.Register("cpu.CPUStats.GlobalWait", cpuMetrics.GlobalWait)
 		r.Register("cpu.CPUStats.LocalTime", cpuMetrics.LocalTime)

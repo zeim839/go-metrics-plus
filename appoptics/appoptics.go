@@ -25,7 +25,6 @@ func translateTimerAttributes(d time.Duration) (attrs map[string]interface{}) {
 // measurements API.
 type Reporter struct {
 	Token                     string
-	Tags                      metrics.Labels
 	Interval                  time.Duration
 	Registry                  metrics.Registry
 	Percentiles               []float64              // percentiles to report on histogram metrics
@@ -38,7 +37,7 @@ type Reporter struct {
 
 // NewReporter creates a new reporter.
 func NewReporter(registry metrics.Registry, interval time.Duration, token string,
-	tags metrics.Labels, percentiles []float64, timeUnits time.Duration,
+	percentiles []float64, timeUnits time.Duration,
 	prefix string, whitelistedRuntimeMetrics []string,
 	measurementsURI string) *Reporter {
 
@@ -53,7 +52,7 @@ func NewReporter(registry metrics.Registry, interval time.Duration, token string
 		}
 	}
 
-	return &Reporter{token, tags, interval, registry, percentiles, prefix,
+	return &Reporter{token, interval, registry, percentiles, prefix,
 		whitelist, translateTimerAttributes(timeUnits),
 		int64(interval / time.Second), measurementsURI}
 }
@@ -64,9 +63,9 @@ func NewReporter(registry metrics.Registry, interval time.Duration, token string
 // only a subset of the runtime.* metrics that are gathered by go-metrics.
 // Passing an empty slice disables uploads for all runtime.* metrics.
 func AppOptics(registry metrics.Registry, interval time.Duration, token string,
-	tags metrics.Labels, percentiles []float64, timeUnits time.Duration,
+	percentiles []float64, timeUnits time.Duration,
 	prefix string, whitelistedRuntimeMetrics []string, measurementsURI string) {
-	NewReporter(registry, interval, token, tags, percentiles,
+	NewReporter(registry, interval, token, percentiles,
 		timeUnits, prefix, whitelistedRuntimeMetrics,
 		measurementsURI).Run()
 }
@@ -114,17 +113,6 @@ func (rep *Reporter) BuildRequest(now time.Time, r metrics.Registry) (batch Batc
 		name = rep.Prefix + name
 		measurement := Measurement{}
 		measurement[Period] = rep.Interval.Seconds()
-
-		mergedTags := metrics.Labels{}
-		copyTags := func(tags metrics.Labels) {
-			for tagName, tagValue := range tags {
-				mergedTags[tagName] = tagValue
-			}
-			measurement[Tags] = mergedTags
-		}
-		// Copy to prevent mutating Reporter's global tags.
-		copyTags(rep.Tags)
-
 		switch m := metric.(type) {
 		case metrics.Counter:
 			if m.Count() <= 0 {
@@ -137,17 +125,14 @@ func (rep *Reporter) BuildRequest(now time.Time, r metrics.Registry) (batch Batc
 				DisplayUnitsShort: OperationsShort,
 				DisplayMin:        "0",
 			}
-			copyTags(m.Labels())
 			batch.Measurements = append(batch.Measurements, measurement)
 		case metrics.Gauge:
 			measurement[Name] = name
 			measurement[Value] = float64(m.Value())
-			copyTags(m.Labels())
 			batch.Measurements = append(batch.Measurements, measurement)
 		case metrics.GaugeFloat64:
 			measurement[Name] = name
 			measurement[Value] = m.Value()
-			copyTags(m.Labels())
 			batch.Measurements = append(batch.Measurements, measurement)
 		case metrics.Histogram:
 			s := m.Snapshot().Sample()
@@ -168,12 +153,10 @@ func (rep *Reporter) BuildRequest(now time.Time, r metrics.Registry) (batch Batc
 			measurement[Min] = float64(s.Min())
 			measurement[Sum] = float64(s.Sum())
 			measurement[StdDev] = float64(s.StdDev())
-			copyTags(m.Labels())
 			measurements[0] = measurement
 			for i, p := range rep.Percentiles {
 				measurements[i+i] = Measurement{
 					Name:   fmt.Sprintf("%s.%.2f", measurement[Name], p),
-					Tags:   mergedTags,
 					Value:  s.Percentile(p),
 					Period: measurement[Period],
 				}
@@ -183,12 +166,10 @@ func (rep *Reporter) BuildRequest(now time.Time, r metrics.Registry) (batch Batc
 			s := m.Snapshot()
 			measurement[Name] = name
 			measurement[Value] = float64(s.Count())
-			copyTags(s.Labels())
 			batch.Measurements = append(batch.Measurements, measurement)
 			batch.Measurements = append(batch.Measurements,
 				Measurement{
 					Name:   fmt.Sprintf("%s.%s", name, "1min"),
-					Tags:   mergedTags,
 					Value:  s.Rate1(),
 					Period: int64(rep.Interval.Seconds()),
 					Attributes: map[string]interface{}{
@@ -199,7 +180,6 @@ func (rep *Reporter) BuildRequest(now time.Time, r metrics.Registry) (batch Batc
 				},
 				Measurement{
 					Name:   fmt.Sprintf("%s.%s", name, "5min"),
-					Tags:   mergedTags,
 					Value:  s.Rate5(),
 					Period: int64(rep.Interval.Seconds()),
 					Attributes: map[string]interface{}{
@@ -210,7 +190,6 @@ func (rep *Reporter) BuildRequest(now time.Time, r metrics.Registry) (batch Batc
 				},
 				Measurement{
 					Name:   fmt.Sprintf("%s.%s", name, "15min"),
-					Tags:   mergedTags,
 					Value:  s.Rate15(),
 					Period: int64(rep.Interval.Seconds()),
 					Attributes: map[string]interface{}{
@@ -224,7 +203,6 @@ func (rep *Reporter) BuildRequest(now time.Time, r metrics.Registry) (batch Batc
 			s := m.Snapshot()
 			measurement[Name] = name
 			measurement[Value] = float64(s.Count())
-			copyTags(s.Labels())
 			batch.Measurements = append(batch.Measurements, measurement)
 			if m.Count() <= 0 {
 				return
@@ -233,7 +211,6 @@ func (rep *Reporter) BuildRequest(now time.Time, r metrics.Registry) (batch Batc
 			measurements := make([]Measurement, histogramMeasurementCount)
 			measurements[0] = Measurement{
 				Name:       appOpticsName,
-				Tags:       mergedTags,
 				Count:      uint64(s.Count()),
 				Sum:        s.Mean() * float64(s.Count()),
 				Max:        float64(s.Max()),
@@ -245,7 +222,6 @@ func (rep *Reporter) BuildRequest(now time.Time, r metrics.Registry) (batch Batc
 			for i, p := range rep.Percentiles {
 				measurements[i+1] = Measurement{
 					Name:       fmt.Sprintf("%s.timer.%2.0f", name, p*100),
-					Tags:       mergedTags,
 					Value:      m.Percentile(p),
 					Period:     int64(rep.Interval.Seconds()),
 					Attributes: rep.TimerAttributes,
@@ -255,7 +231,6 @@ func (rep *Reporter) BuildRequest(now time.Time, r metrics.Registry) (batch Batc
 			batch.Measurements = append(batch.Measurements,
 				Measurement{
 					Name:   fmt.Sprintf("%s.%s", name, "rate.1min"),
-					Tags:   mergedTags,
 					Value:  s.Rate1(),
 					Period: int64(rep.Interval.Seconds()),
 					Attributes: map[string]interface{}{
@@ -266,7 +241,6 @@ func (rep *Reporter) BuildRequest(now time.Time, r metrics.Registry) (batch Batc
 				},
 				Measurement{
 					Name:   fmt.Sprintf("%s.%s", name, "rate.5min"),
-					Tags:   mergedTags,
 					Value:  s.Rate5(),
 					Period: int64(rep.Interval.Seconds()),
 					Attributes: map[string]interface{}{
@@ -277,7 +251,6 @@ func (rep *Reporter) BuildRequest(now time.Time, r metrics.Registry) (batch Batc
 				},
 				Measurement{
 					Name:   fmt.Sprintf("%s.%s", name, "rate.15min"),
-					Tags:   mergedTags,
 					Value:  s.Rate15(),
 					Period: int64(rep.Interval.Seconds()),
 					Attributes: map[string]interface{}{

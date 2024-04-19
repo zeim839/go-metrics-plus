@@ -18,12 +18,12 @@ var (
 
 func BenchmarkMetrics(b *testing.B) {
 	r := NewRegistry()
-	c := NewRegisteredCounter("counter", r, nil)
-	g := NewRegisteredGauge("gauge", r, nil)
-	gf := NewRegisteredGaugeFloat64("gaugefloat64", r, nil)
-	h := NewRegisteredHistogram("histogram", r, NewUniformSample(100), nil)
-	m := NewRegisteredMeter("meter", r, nil)
-	t := NewRegisteredTimer("timer", r, nil)
+	c := NewRegisteredCounter("counter", r)
+	g := NewRegisteredGauge("gauge", r)
+	gf := NewRegisteredGaugeFloat64("gaugefloat64", r)
+	h := NewRegisteredHistogram("histogram", r, NewUniformSample(100))
+	m := NewRegisteredMeter("meter", r)
+	t := NewRegisteredTimer("timer", r)
 	RegisterDebugGCStats(r)
 	RegisterRuntimeMemStats(r)
 	b.ResetTimer()
@@ -108,12 +108,12 @@ func BenchmarkMetrics(b *testing.B) {
 }
 
 func Example() {
-	c := NewCounter(nil)
+	c := NewCounter()
 	Register("money", c)
 	c.Inc(17)
 
 	// Threadsafe registration
-	t := GetOrRegisterTimer("db.get.latency", nil, nil)
+	t := GetOrRegisterTimer("db.get.latency", nil)
 	t.Time(func() {})
 	t.Update(1)
 

@@ -46,7 +46,7 @@ func newTestServer(t *testing.T, ctx *atomic.Bool) (map[string]string,
 			r := bufio.NewReader(conn)
 			line, err := r.ReadString('\n')
 			for err == nil {
-				parts := strings.Split(line, ";")
+				parts := strings.Split(line, " ")
 				res[parts[0]] = res[parts[0]] + line
 				line, err = r.ReadString('\n')
 			}
@@ -72,8 +72,8 @@ func TestWrites(t *testing.T) {
 	res, ln, c, wg := newTestServer(t, &ctx)
 	defer ln.Close()
 
-	metrics.GetOrRegisterCounter("foo", nil, metrics.Labels{"key1": "value1"}).Inc(2)
-	metrics.GetOrRegisterMeter("bar", nil, metrics.Labels{"key2": "value2"}).Mark(1)
+	metrics.GetOrRegisterCounter("foo", nil).Inc(2)
+	metrics.GetOrRegisterMeter("bar", nil).Mark(1)
 
 	ctx.Store(false)
 	wg.Add(1)
@@ -84,22 +84,22 @@ func TestWrites(t *testing.T) {
 	}
 	wg.Wait()
 
-	expect := "p.bar.count;key2=value2 1"
+	expect := "p.bar.count 1"
 	if str := res["p.bar.count"]; expect != str[:len(str)-12] {
 		t.Errorf("%s != %s", expect, str[:len(str)-12])
 	}
 
-	expect = "p.bar.rate.15min;key2=value2 1.000000"
+	expect = "p.bar.rate.15min 1.000000"
 	if str := res["p.bar.rate.15min"]; expect != str[:len(str)-12] {
 		t.Errorf("%s != %s", expect, str[:len(str)-12])
 	}
 
-	expect = "p.bar.rate.1min;key2=value2 1.000000"
+	expect = "p.bar.rate.1min 1.000000"
 	if str := res["p.bar.rate.1min"]; expect != str[:len(str)-12] {
 		t.Errorf("%s != %s", expect, str[:len(str)-12])
 	}
 
-	expect = "p.bar.rate.5min;key2=value2 1.000000"
+	expect = "p.bar.rate.5min 1.000000"
 	if str := res["p.bar.rate.5min"]; expect != str[:len(str)-12] {
 		t.Errorf("%s != %s", expect, str[:len(str)-12])
 	}
@@ -107,7 +107,7 @@ func TestWrites(t *testing.T) {
 	// p.bar.rate.mean changes every nanosecond. It is too erratic,
 	// so it is ignored in this test.
 
-	expect = "p.foo;key1=value1 2"
+	expect = "p.foo 2"
 	if str := res["p.foo"]; expect != str[:len(str)-12] {
 		t.Errorf("%s != %s", expect, str[:len(str)-12])
 	}

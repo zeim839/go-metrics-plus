@@ -8,7 +8,7 @@ import (
 )
 
 func BenchmarkTimer(b *testing.B) {
-	tm := NewTimer(nil)
+	tm := NewTimer()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		tm.Update(1)
@@ -17,14 +17,14 @@ func BenchmarkTimer(b *testing.B) {
 
 func TestGetOrRegisterTimer(t *testing.T) {
 	r := NewRegistry()
-	NewRegisteredTimer("foo", r, nil).Update(47)
-	if tm := GetOrRegisterTimer("foo", r, nil); tm.Count() != 1 {
+	NewRegisteredTimer("foo", r).Update(47)
+	if tm := GetOrRegisterTimer("foo", r); tm.Count() != 1 {
 		t.Fatal(tm)
 	}
 }
 
 func TestTimerExtremes(t *testing.T) {
-	tm := NewTimer(nil)
+	tm := NewTimer()
 	tm.Update(math.MaxInt64)
 	tm.Update(0)
 	if stdDev := tm.StdDev(); stdDev != 4.611686018427388e+18 {
@@ -33,7 +33,7 @@ func TestTimerExtremes(t *testing.T) {
 }
 
 func TestTimerFunc(t *testing.T) {
-	tm := NewTimer(nil)
+	tm := NewTimer()
 	tm.Time(func() { time.Sleep(50e6) })
 	if max := tm.Max(); 45e6 > max || max > 55e6 {
 		t.Errorf("tm.Max(): 45e6 > %v || %v > 55e6\n", max, max)
@@ -41,7 +41,7 @@ func TestTimerFunc(t *testing.T) {
 }
 
 func TestTimerZero(t *testing.T) {
-	tm := NewTimer(nil)
+	tm := NewTimer()
 	if count := tm.Count(); count != 0 {
 		t.Errorf("tm.Count(): 0 != %v\n", count)
 	}
@@ -81,49 +81,9 @@ func TestTimerZero(t *testing.T) {
 	}
 }
 
-func TestTimerLabels(t *testing.T) {
-	labels := Labels{"key1": "value1"}
-	c := NewTimer(labels)
-	if len(c.Labels()) != 1 {
-		t.Fatalf("Labels(): %v != 1", len(c.Labels()))
-	}
-	if lbls := c.Labels()["key1"]; lbls != "value1" {
-		t.Errorf("Labels(): %v != value1", lbls)
-	}
-
-	// Labels passed by value.
-	labels["key1"] = "value2"
-	if lbls := c.Labels()["key1"]; lbls != "value1" {
-		t.Error("Labels(): labels passed by reference")
-	}
-
-	// Labels in snapshot.
-	ss := c.Snapshot()
-	if len(ss.Labels()) != 1 {
-		t.Fatalf("Labels(): %v != 1", len(c.Labels()))
-	}
-	if lbls := ss.Labels()["key1"]; lbls != "value1" {
-		t.Errorf("Labels(): %v != value1", lbls)
-	}
-}
-
-func TestTimerWithLabels(t *testing.T) {
-	c := NewTimer(Labels{"foo": "bar"})
-	new := c.WithLabels(Labels{"bar": "foo"})
-	if len(new.Labels()) != 2 {
-		t.Fatalf("WithLabels() len: %v != 2", len(new.Labels()))
-	}
-	if lbls := new.Labels()["foo"]; lbls != "bar" {
-		t.Errorf("WithLabels(): %v != bar", lbls)
-	}
-	if lbls := new.Labels()["bar"]; lbls != "foo" {
-		t.Errorf("WithLabels(): %v != foo", lbls)
-	}
-}
-
 func ExampleGetOrRegisterTimer() {
 	m := "account.create.latency"
-	t := GetOrRegisterTimer(m, nil, nil)
+	t := GetOrRegisterTimer(m, nil)
 	t.Update(47)
 	fmt.Println(t.Max()) // Output: 47
 }

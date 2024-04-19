@@ -3,7 +3,7 @@ package metrics
 import "testing"
 
 func BenchmarkHistogram(b *testing.B) {
-	h := NewHistogram(NewUniformSample(100), nil)
+	h := NewHistogram(NewUniformSample(100))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		h.Update(int64(i))
@@ -13,14 +13,14 @@ func BenchmarkHistogram(b *testing.B) {
 func TestGetOrRegisterHistogram(t *testing.T) {
 	r := NewRegistry()
 	s := NewUniformSample(100)
-	NewRegisteredHistogram("foo", r, s, nil).Update(47)
-	if h := GetOrRegisterHistogram("foo", r, s, nil); h.Count() != 1 {
+	NewRegisteredHistogram("foo", r, s).Update(47)
+	if h := GetOrRegisterHistogram("foo", r, s); h.Count() != 1 {
 		t.Fatal(h)
 	}
 }
 
 func TestHistogram10000(t *testing.T) {
-	h := NewHistogram(NewUniformSample(100000), nil)
+	h := NewHistogram(NewUniformSample(100000))
 	for i := 1; i <= 10000; i++ {
 		h.Update(int64(i))
 	}
@@ -28,7 +28,7 @@ func TestHistogram10000(t *testing.T) {
 }
 
 func TestHistogramEmpty(t *testing.T) {
-	h := NewHistogram(NewUniformSample(100), nil)
+	h := NewHistogram(NewUniformSample(100))
 	if count := h.Count(); count != 0 {
 		t.Errorf("h.Count(): 0 != %v\n", count)
 	}
@@ -57,7 +57,7 @@ func TestHistogramEmpty(t *testing.T) {
 }
 
 func TestHistogramSnapshot(t *testing.T) {
-	h := NewHistogram(NewUniformSample(100000), nil)
+	h := NewHistogram(NewUniformSample(100000))
 	for i := 1; i <= 10000; i++ {
 		h.Update(int64(i))
 	}
@@ -91,45 +91,5 @@ func testHistogram10000(t *testing.T, h Histogram) {
 	}
 	if ps[2] != 9900.99 {
 		t.Errorf("99th percentile: 9900.99 != %v\n", ps[2])
-	}
-}
-
-func TestHistogramLabels(t *testing.T) {
-	labels := Labels{"key1": "value1"}
-	h := NewHistogram(NewUniformSample(100), labels)
-	if len(h.Labels()) != 1 {
-		t.Fatalf("Labels(): %v != 1", len(h.Labels()))
-	}
-	if lbls := h.Labels()["key1"]; lbls != "value1" {
-		t.Errorf("Labels(): %v != value1", lbls)
-	}
-
-	// Labels passed by value.
-	labels["key1"] = "value2"
-	if lbls := h.Labels()["key1"]; lbls != "value1" {
-		t.Error("Labels(): labels passed by reference")
-	}
-
-	// Labels in snapshot.
-	ss := h.Snapshot()
-	if len(ss.Labels()) != 1 {
-		t.Fatalf("Labels(): %v != 1", len(h.Labels()))
-	}
-	if lbls := ss.Labels()["key1"]; lbls != "value1" {
-		t.Errorf("Labels(): %v != value1", lbls)
-	}
-}
-
-func TestHistogramWithLabels(t *testing.T) {
-	h := NewHistogram(NewUniformSample(100), Labels{"foo": "bar"})
-	new := h.WithLabels(Labels{"bar": "foo"})
-	if len(new.Labels()) != 2 {
-		t.Fatalf("WithLabels() len: %v != 2", len(new.Labels()))
-	}
-	if lbls := new.Labels()["foo"]; lbls != "bar" {
-		t.Errorf("WithLabels(): %v != bar", lbls)
-	}
-	if lbls := new.Labels()["bar"]; lbls != "foo" {
-		t.Errorf("WithLabels(): %v != foo", lbls)
 	}
 }

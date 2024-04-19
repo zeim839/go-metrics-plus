@@ -15,32 +15,28 @@ type Meter interface {
 	Rate15() float64
 	RateMean() float64
 	Snapshot() Meter
-	Labels() Labels
-	WithLabels(Labels) Meter
 }
 
 // GetOrRegisterMeter returns an existing Meter or constructs and registers a
 // new StandardMeter.
-func GetOrRegisterMeter(name string, r Registry, labels Labels) Meter {
+func GetOrRegisterMeter(name string, r Registry) Meter {
 	if nil == r {
 		r = DefaultRegistry
 	}
-	return r.GetOrRegister(name, func() Meter {
-		return NewMeter(labels)
-	}).(Meter)
+	return r.GetOrRegister(name, NewMeter).(Meter)
 }
 
 // NewMeter constructs a new StandardMeter.
-func NewMeter(labels Labels) Meter {
+func NewMeter() Meter {
 	if UseNilMetrics {
 		return NilMeter{}
 	}
-	return newStandardMeter(labels)
+	return newStandardMeter()
 }
 
 // NewRegisteredMeter constructs and registers a new StandardMeter.
-func NewRegisteredMeter(name string, r Registry, labels Labels) Meter {
-	c := NewMeter(labels)
+func NewRegisteredMeter(name string, r Registry) Meter {
+	c := NewMeter()
 	if nil == r {
 		r = DefaultRegistry
 	}
@@ -52,7 +48,6 @@ func NewRegisteredMeter(name string, r Registry, labels Labels) Meter {
 type MeterSnapshot struct {
 	count                          int64
 	rate1, rate5, rate15, rateMean float64
-	labels                         Labels
 }
 
 // Count returns the count of events at the time the snapshot was taken.
@@ -82,26 +77,6 @@ func (m *MeterSnapshot) RateMean() float64 { return m.rateMean }
 // Snapshot returns the snapshot.
 func (m *MeterSnapshot) Snapshot() Meter { return m }
 
-// Labels returns the snapshot's labels.
-func (m *MeterSnapshot) Labels() Labels { return deepCopyLabels(m.labels) }
-
-// WithLabels returns a copy of the snapshot with the given labels appended to
-// the current list of labels.
-func (m *MeterSnapshot) WithLabels(labels Labels) Meter {
-	newLabels := m.labels
-	for k, v := range labels {
-		newLabels[k] = v
-	}
-	return &MeterSnapshot{
-		count:    m.Count(),
-		rate1:    m.Rate1(),
-		rate5:    m.Rate5(),
-		rate15:   m.Rate15(),
-		rateMean: m.RateMean(),
-		labels:   newLabels,
-	}
-}
-
 // NilMeter is a no-op Meter.
 type NilMeter struct{}
 
@@ -126,27 +101,19 @@ func (NilMeter) RateMean() float64 { return 0.0 }
 // Snapshot is a no-op.
 func (NilMeter) Snapshot() Meter { return NilMeter{} }
 
-// Labels is a no-op.
-func (NilMeter) Labels() Labels { return Labels{} }
-
-// WithLabels is a no-op.
-func (NilMeter) WithLabels(Labels) Meter { return NilMeter{} }
-
 // StandardMeter is the standard implementation of a Meter.
 type StandardMeter struct {
 	count       atomic.Int64
 	a1, a5, a15 EWMA
 	startTime   time.Time
-	labels      Labels
 }
 
-func newStandardMeter(labels Labels) *StandardMeter {
+func newStandardMeter() *StandardMeter {
 	return &StandardMeter{
 		a1:        NewEWMA1(),
 		a5:        NewEWMA5(),
 		a15:       NewEWMA15(),
 		startTime: time.Now(),
-		labels:    deepCopyLabels(labels),
 	}
 }
 
@@ -191,15 +158,5 @@ func (m *StandardMeter) Snapshot() Meter {
 		rate5:    m.Rate5(),
 		rate15:   m.Rate15(),
 		rateMean: m.RateMean(),
-		labels:   m.Labels(),
 	}
-}
-
-// Labels returns a deep copy of the meter's labels.
-func (m *StandardMeter) Labels() Labels { return deepCopyLabels(m.labels) }
-
-// WithLabels returns a snapshot of the Meter with the given labels appended to
-// the current list of labels.
-func (m *StandardMeter) WithLabels(labels Labels) Meter {
-	return m.Snapshot().WithLabels(labels)
 }
