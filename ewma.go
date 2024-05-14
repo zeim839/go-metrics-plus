@@ -6,34 +6,38 @@ import (
 	"time"
 )
 
-// EWMA calculates an exponentially-weighted moving average
+// EWMA calculates an exponentially-weighted per-second moving average.
 type EWMA interface {
 	Rate() float64
 	Snapshot() EWMA
 	Update(int64)
 }
 
-// NewEWMA constructs a new EWMA with the given alpha.
-func NewEWMA(alpha float64) EWMA {
+// NewEWMA constructs a new EWMA with the given alpha and period.
+func NewEWMA(alpha float64, period time.Duration) EWMA {
 	if UseNilMetrics {
 		return NilEWMA{}
 	}
-	return &StandardEWMA{alpha: alpha}
+	return &StandardEWMA{
+		alpha:     alpha,
+		period:    period,
+		timestamp: time.Now(),
+	}
 }
 
 // NewEWMA1 constructs a new EWMA for a one-minute moving average.
 func NewEWMA1() EWMA {
-	return NewEWMA(1 - math.Exp(-1.0/60.0/1))
+	return NewEWMA(1-math.Exp(-5.0/60.0/1), 5*time.Second)
 }
 
 // NewEWMA5 constructs a new EWMA for a five-minute moving average.
 func NewEWMA5() EWMA {
-	return NewEWMA(1 - math.Exp(-1.0/60.0/5))
+	return NewEWMA(1-math.Exp(-5.0/60.0/5), 5*time.Second)
 }
 
 // NewEWMA15 constructs a new EWMA for a fifteen-minute moving average.
 func NewEWMA15() EWMA {
-	return NewEWMA(1 - math.Exp(-1.0/60.0/15))
+	return NewEWMA(1-math.Exp(-5.0/60.0/15), 5*time.Second)
 }
 
 // EWMASnapshot is a read-only copy of another EWMA.
@@ -67,66 +71,60 @@ func (NilEWMA) Update(n int64) {}
 // StandardEWMA is the standard implementation of an EWMA.
 type StandardEWMA struct {
 	alpha     float64
+	period    time.Duration
 	ewma      float64
 	uncounted int64
-	timestamp int64
+	timestamp time.Time
 	init      bool
 	mutex     sync.Mutex
 }
 
+func (s *StandardEWMA) updateRate() {
+	periods := time.Since(s.timestamp) / s.period
+	rate := float64(s.uncounted) / float64(s.period)
+
+	s.ewma = s.alpha*(rate) + (1-s.alpha)*s.ewma
+	s.timestamp = s.timestamp.Add(s.period)
+	s.uncounted = 0
+	periods -= 1
+
+	if !s.init {
+		s.ewma = rate
+		s.init = true
+	}
+
+	s.ewma = math.Pow(1-s.alpha, float64(periods)) * s.ewma
+	s.timestamp = s.timestamp.Add(time.Duration(periods) * s.period)
+}
+
 // Rate returns the moving average rate of events per second.
-func (a *StandardEWMA) Rate() float64 {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-	if !a.init {
-		return 0
+func (s *StandardEWMA) Rate() float64 {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if time.Since(s.timestamp)/s.period < 1 {
+		return s.ewma * float64(time.Second)
 	}
-
-	now := time.Now().UnixNano()
-	elapsed := math.Floor(float64(now-a.timestamp) / 1e9)
-	if elapsed >= 1 && a.uncounted != 0 {
-		a.ewma = a.alpha*float64(a.uncounted) + (1-a.alpha)*a.ewma
-		a.ewma = math.Pow(1-a.alpha, elapsed-1) * a.ewma
-		a.timestamp = now
-		a.uncounted = 0
-		return a.ewma
-	}
-
-	a.ewma = math.Pow(1-a.alpha, float64(elapsed)) * a.ewma
-	a.timestamp = now
-	return a.ewma
+	s.updateRate()
+	return s.ewma * float64(time.Second)
 }
 
 // Snapshot returns a read-only copy of the EWMA.
-func (a *StandardEWMA) Snapshot() EWMA {
-	return EWMASnapshot(a.Rate())
-}
-
-// Used to elapse time in unit tests.
-func (a *StandardEWMA) addToTimestamp(ns int64) {
-	a.timestamp += ns
+func (s *StandardEWMA) Snapshot() EWMA {
+	return EWMASnapshot(s.Rate())
 }
 
 // Update registers n events that occured within the last ± 0.5 sec.
-func (a *StandardEWMA) Update(n int64) {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-	now := time.Now().UnixNano()
-	if !a.init {
-		a.ewma = float64(n)
-		a.timestamp = now
-		a.init = true
+func (s *StandardEWMA) Update(n int64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if time.Since(s.timestamp)/s.period < 1 {
+		s.uncounted += n
 		return
 	}
+	s.updateRate()
+}
 
-	elapsed := math.Floor(float64(now-a.timestamp) / 1e9)
-	if elapsed < 1 {
-		a.uncounted += n
-		return
-	}
-
-	a.ewma = a.alpha*float64(a.uncounted) + (1-a.alpha)*a.ewma
-	a.ewma = math.Pow(1-a.alpha, elapsed-1) * a.ewma
-	a.timestamp = now
-	a.uncounted = n
+// Used to elapse time in unit tests.
+func (s *StandardEWMA) addToTimestamp(d time.Duration) {
+	s.timestamp = s.timestamp.Add(d)
 }
