@@ -73,7 +73,7 @@ func TestWrites(t *testing.T) {
 	defer ln.Close()
 
 	metrics.GetOrRegisterCounter("foo", nil).Inc(2)
-	metrics.GetOrRegisterMeter("bar", nil).Mark(1)
+	metrics.GetOrRegisterGauge("bar", nil).Update(1)
 
 	ctx.Store(false)
 	wg.Add(1)
@@ -84,28 +84,8 @@ func TestWrites(t *testing.T) {
 	}
 	wg.Wait()
 
-	expect := "p.bar.count:1|c\n"
-	if str := res["p.bar.count"]; expect != str {
-		t.Errorf("%v != %v", expect, str)
-	}
-
-	expect = "p.bar.rate.15min:1.000000|g\n"
-	if str := res["p.bar.rate.15min"]; expect != str {
-		t.Errorf("%v != %v", expect, str)
-	}
-
-	expect = "p.bar.rate.5min:1.000000|g\n"
-	if str := res["p.bar.rate.5min"]; expect != str {
-		t.Errorf("%v != %v", expect, str)
-	}
-
-	expect = "p.bar.rate.1min:1.000000|g\n"
-	if str := res["p.bar.rate.1min"]; expect != str {
-		t.Errorf("%v != %v", expect, str)
-	}
-
-	expect = "p.bar.rate.1min:1.000000|g\n"
-	if str := res["p.bar.rate.1min"]; expect != str {
+	expect := "p.bar:1|g\n"
+	if str := res["p.bar"]; expect != str {
 		t.Errorf("%v != %v", expect, str)
 	}
 

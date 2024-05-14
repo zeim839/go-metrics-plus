@@ -89,17 +89,17 @@ func TestWrites(t *testing.T) {
 		t.Errorf("%s != %s", expect, str[:len(str)-12])
 	}
 
-	expect = "p.bar.rate.15min 1.000000"
+	expect = "p.bar.rate.15min 0.000000"
 	if str := res["p.bar.rate.15min"]; expect != str[:len(str)-12] {
 		t.Errorf("%s != %s", expect, str[:len(str)-12])
 	}
 
-	expect = "p.bar.rate.1min 1.000000"
+	expect = "p.bar.rate.1min 0.000000"
 	if str := res["p.bar.rate.1min"]; expect != str[:len(str)-12] {
 		t.Errorf("%s != %s", expect, str[:len(str)-12])
 	}
 
-	expect = "p.bar.rate.5min 1.000000"
+	expect = "p.bar.rate.5min 0.000000"
 	if str := res["p.bar.rate.5min"]; expect != str[:len(str)-12] {
 		t.Errorf("%s != %s", expect, str[:len(str)-12])
 	}

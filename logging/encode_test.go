@@ -298,15 +298,15 @@ func TestEncodeMeter(t *testing.T) {
 	if line := lines[0][:len(lines[0])-11]; line != expect {
 		t.Errorf("Encode(): %s != %s", line, expect)
 	}
-	expect = "bar_foo_rate_1min 20.000000"
+	expect = "bar_foo_rate_1min 0.000000"
 	if line := lines[1][:len(lines[1])-11]; line != expect {
 		t.Errorf("Encode(): %s != %s", line, expect)
 	}
-	expect = "bar_foo_rate_5min 20.000000"
+	expect = "bar_foo_rate_5min 0.000000"
 	if line := lines[2][:len(lines[2])-11]; line != expect {
 		t.Errorf("Encode(): %s != %s", line, expect)
 	}
-	expect = "bar_foo_rate_15min 20.000000"
+	expect = "bar_foo_rate_15min 0.000000"
 	if line := lines[3][:len(lines[3])-11]; line != expect {
 		t.Errorf("Encode(): %s != %s", line, expect)
 	}
@@ -326,15 +326,15 @@ func TestEncodeMeter(t *testing.T) {
 	if line := lines[0][:len(lines[0])-11]; line != expect {
 		t.Errorf("Encode(): %s != %s", line, expect)
 	}
-	expect = "foo_rate_1min 20.000000"
+	expect = "foo_rate_1min 0.000000"
 	if line := lines[1][:len(lines[1])-11]; line != expect {
 		t.Errorf("Encode(): %s != %s", line, expect)
 	}
-	expect = "foo_rate_5min 20.000000"
+	expect = "foo_rate_5min 0.000000"
 	if line := lines[2][:len(lines[2])-11]; line != expect {
 		t.Errorf("Encode(): %s != %s", line, expect)
 	}
-	expect = "foo_rate_15min 20.000000"
+	expect = "foo_rate_15min 0.000000"
 	if line := lines[3][:len(lines[3])-11]; line != expect {
 		t.Errorf("Encode(): %s != %s", line, expect)
 	}

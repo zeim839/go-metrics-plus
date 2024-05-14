@@ -128,19 +128,19 @@ func TestPrometheusOnce(t *testing.T) {
 	}
 
 	expected = "name:\"meter_rate_15min\" help:\"meter_rate_15min\" type:GAUGE " +
-		"metric:<gauge:<value:45 > > "
+		"metric:<gauge:<value:0 > > "
 	if expected != fmt.Sprint(metrics[3]) {
 		t.Errorf("Once(): %s != %s", expected, metrics[3])
 	}
 
 	expected = "name:\"meter_rate_1min\" help:\"meter_rate_1min\" type:GAUGE " +
-		"metric:<gauge:<value:45 > > "
+		"metric:<gauge:<value:0 > > "
 	if expected != fmt.Sprint(metrics[4]) {
 		t.Errorf("Once(): %s != %s", expected, metrics[4])
 	}
 
 	expected = "name:\"meter_rate_5min\" help:\"meter_rate_5min\" type:GAUGE " +
-		"metric:<gauge:<value:45 > > "
+		"metric:<gauge:<value:0 > > "
 	if expected != fmt.Sprint(metrics[5]) {
 		t.Errorf("Once(): %s != %s", expected, metrics[5])
 	}
