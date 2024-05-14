@@ -14,7 +14,7 @@ type Counter interface {
 // GetOrRegisterCounter returns an existing Counter or constructs and registers
 // a new StandardCounter.
 func GetOrRegisterCounter(name string, r Registry) Counter {
-	if nil == r {
+	if r == nil {
 		r = DefaultRegistry
 	}
 	return r.GetOrRegister(name, NewCounter).(Counter)
@@ -40,7 +40,7 @@ func NewCounter() Counter {
 
 // CounterSnapshot is a read-only copy of another Counter.
 type CounterSnapshot struct {
-	count  int64
+	count int64
 }
 
 // Clear panics.
@@ -85,7 +85,7 @@ func (NilCounter) Snapshot() Counter { return NilCounter{} }
 // StandardCounter is the standard implementation of a Counter and uses the
 // sync/atomic package to manage a single int64 value.
 type StandardCounter struct {
-	count  atomic.Int64
+	count atomic.Int64
 }
 
 // Clear sets the counter to zero.
@@ -111,6 +111,6 @@ func (c *StandardCounter) Inc(i int64) {
 // Snapshot returns a read-only copy of the counter.
 func (c *StandardCounter) Snapshot() Counter {
 	return CounterSnapshot{
-		count:  c.Count(),
+		count: c.Count(),
 	}
 }

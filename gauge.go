@@ -56,7 +56,7 @@ func NewRegisteredFunctionalGauge(name string, r Registry, f func() int64) Gauge
 
 // GaugeSnapshot is a read-only copy of another Gauge.
 type GaugeSnapshot struct {
-	value  int64
+	value int64
 }
 
 // Snapshot returns the snapshot.
@@ -85,13 +85,13 @@ func (NilGauge) Value() int64 { return 0 }
 // StandardGauge is the standard implementation of a Gauge and uses the
 // sync/atomic package to manage a single int64 value.
 type StandardGauge struct {
-	value  atomic.Int64
+	value atomic.Int64
 }
 
 // Snapshot returns a read-only copy of the gauge.
 func (g *StandardGauge) Snapshot() Gauge {
 	return GaugeSnapshot{
-		value:  g.Value(),
+		value: g.Value(),
 	}
 }
 
@@ -107,7 +107,7 @@ func (g *StandardGauge) Value() int64 {
 
 // FunctionalGauge returns value from given function
 type FunctionalGauge struct {
-	value  func() int64
+	value func() int64
 }
 
 // Value returns the gauge's current value.
@@ -118,7 +118,7 @@ func (g FunctionalGauge) Value() int64 {
 // Snapshot returns the snapshot.
 func (g FunctionalGauge) Snapshot() Gauge {
 	return &GaugeSnapshot{
-		value:  g.Value(),
+		value: g.Value(),
 	}
 }
 
